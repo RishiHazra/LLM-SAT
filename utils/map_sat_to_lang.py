@@ -17,12 +17,12 @@ class SatLanguage:
         self.person_names = [item.strip() for item in self.person_names]
 
     def sample_menu_items(self, num_vars: int) -> List[str]:
-        """randomly sample num_vars menu items from a list of 50 food items"""
+        """randomly sample num_vars menu.py items from a list of 50 food items"""
         return random.sample(self.food_items, num_vars)
 
     def define_constraints(self, menu_items: List[str], formula: List[List[int]], num_clauses:int) -> str:
         """define food preferences for num_clause people
-        by assigning a one-to-one mapping from formula variables to menu items"""
+        by assigning a one-to-one mapping from formula variables to menu.py items"""
         persons = random.sample(self.person_names, num_clauses)
         all_preferences = ''
 

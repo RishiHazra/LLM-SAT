@@ -70,7 +70,8 @@ def parse_generated_output(raw_output: str) -> Tuple[List[str], List[str]]:
 
 
 if __name__ == "__main__":
-    file_lines = open('../out_data/data_log.log', 'r').readlines()
+    model_name = 'llama-2-70b'  # gpt-3.5, gpt-4, llama-2-70b
+    file_lines = open(f'../out_data_{model_name}/data_log.log', 'r').readlines()
     correct = 0
     dataframe_dict = {'num_variables':[], 'num_clauses': [], 'alpha':[], 'is_sat':[],
                       'correct': [], 'num_prompt_tokens': [], 'num_completion_tokens': []}
@@ -78,8 +79,8 @@ if __name__ == "__main__":
     for id, line in enumerate(file_lines):
         sample_dict = ast.literal_eval(line.split("Data Sample: ")[1])
 
-        if not sample_dict['is_sat']:   # if unsat
-            continue
+        # if not sample_dict['is_sat']:   # if unsat
+        #     continue
 
         dataframe_dict['num_variables'].append(sample_dict['num_vars'])
         dataframe_dict['num_clauses'].append(sample_dict['num_clauses'])
@@ -87,7 +88,7 @@ if __name__ == "__main__":
         dataframe_dict['num_prompt_tokens'].append(sample_dict['num_prompt_tokens'])
         dataframe_dict['num_completion_tokens'].append(sample_dict['num_completion_tokens'])
 
-        alpha = int(sample_dict['num_clauses'] / sample_dict['num_vars'])
+        alpha = sample_dict['num_clauses'] / sample_dict['num_vars']
         dataframe_dict['alpha'].append(alpha)
 
         try:
@@ -128,16 +129,19 @@ if __name__ == "__main__":
     lambda x: np.mean(x['correct'])
 ).reset_index(name='accuracy')
 
+
     # Plotting
     plt.figure(figsize=(10, 6))
     for num_vars in accuracy_df['num_variables'].unique():
-        if num_vars in [4,7,10]:
+        # if num_vars in [4,6,10]:
             subset = accuracy_df[accuracy_df['num_variables'] == num_vars]
             plt.plot(subset['alpha'], subset['accuracy'], marker='o', label=f'Variables: {num_vars}')
 
-    plt.xlabel('Alpha')
-    plt.ylabel('Accuracy')
+    plt.xlabel('alpha')
+    plt.ylabel('accuracy')
+    plt.yticks(np.arange(0, 1.1, 0.1))
     plt.legend()
+    plt.title(f'{model_name} accuracy vs alpha')
     plt.grid(True)
     plt.show()
 
@@ -145,10 +149,28 @@ if __name__ == "__main__":
     # Plotting
     plt.figure(figsize=(10, 6))
     plt.plot(accuracy_df_simple['alpha'], accuracy_df_simple['accuracy'], marker='o')
+    plt.yticks(np.arange(0,1.1,0.1))
+    plt.xlabel('alpha')
+    plt.ylabel('accuracy')
+    plt.title(f'{model_name} accuracy vs alpha')
+    plt.grid(True)
+    plt.show()
 
-    plt.xlabel('Alpha')
-    plt.ylabel('Accuracy')
-    plt.title('Alpha vs Accuracy')
+    _3d_df_simple = df.groupby('num_variables')['correct'].mean().reset_index(name='accuracy')
+    plt.figure(figsize=(10, 6))
+    plt.plot(_3d_df_simple['num_variables'], _3d_df_simple['accuracy'], marker='o')
+    plt.xlabel('# variables')
+    plt.ylabel('accuracy')
+    plt.title(f'{model_name} accuracy vs # variables')
+    plt.grid(True)
+    plt.show()
+
+    _3d_df_simple = df.groupby('num_clauses')['correct'].mean().reset_index(name='accuracy')
+    plt.figure(figsize=(10, 6))
+    plt.plot(_3d_df_simple['num_clauses'], _3d_df_simple['accuracy'], marker='o')
+    plt.xlabel('# clauses')
+    plt.ylabel('accuracy')
+    plt.title(f'{model_name} accuracy vs # clauses')
     plt.grid(True)
     plt.show()
     # Plot distributions
