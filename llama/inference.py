@@ -1,7 +1,7 @@
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-def generate(prompt):
+def query_llama(prompt):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     print(device)
     # access_token = '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'
@@ -34,12 +34,17 @@ def generate(prompt):
     # )
     # for seq in sequences:
     #     print(f"{seq['generated_text']}")
-    model_inputs = tokenizer(prompt, return_tensors="pt").to(device)
-    output = model.generate(**model_inputs, max_new_tokens=1000)
-    generated_out = tokenizer.decode(output[0], skip_special_tokens=True)
-    return generated_out
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenized_prompts = tokenizer(prompt, padding=True, return_tensors="pt").to(device)
+    num_prompt_tokens = torch.sum(tokenized_prompts.attention_mask, dim=-1).cpu().numpy()
+    output_ids= model.generate(**tokenized_prompts, max_new_tokens=100)
+    gen_output_ids = output_ids[:, tokenized_prompts.input_ids.shape[-1]:]
+    num_completion_tokens = output_ids.shape[-1] - num_prompt_tokens
+    generated_out = tokenizer.batch_decode(gen_output_ids, skip_special_tokens=True)
+    return generated_out, num_prompt_tokens, num_completion_tokens
 
 if __name__ == "__main__":
-    prompt = "Tell me about gravity"
-    generated = generate(prompt)
+    prompt = ["Tell me about gravity", "Say something about pizza"]
+    generated, num_prompt_tokens, num_completion_tokens = query_llama(prompt)
     print(generated)
+    print(f'# prompt tokens: {num_prompt_tokens} | # completion tokens: {num_completion_tokens}')
