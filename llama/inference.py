@@ -14,8 +14,8 @@ def query_llama(prompt):
         bnb_4bit_compute_dtype=torch.bfloat16
     )
 
-    model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", quantization_config=bnb_config)
-    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
+    model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", quantization_config=bnb_config, use_auth_token=access_token)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True, use_auth_token=access_token)
 
     # pipeline = transformers.pipeline(
     #     "text-generation",
