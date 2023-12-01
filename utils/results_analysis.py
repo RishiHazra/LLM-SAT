@@ -3,7 +3,7 @@ import ast
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from verify_solution import verify_solution
 from data_analysis import plot_comparison, plot_distribution, plot_dicts, plot_bar_comparison
 import Levenshtein as lev
@@ -23,6 +23,37 @@ def find_best_match(target, string_list):
             best_match = s
 
     return best_match
+
+def parse_generated_output_sat(raw_output: str) -> List:
+
+    # Regex pattern to match the specific format with numbers and boolean values
+    pattern = r"\n<output:\s*{\s*(?:(-?\d+): (True|False),?\s*)*}>"
+
+    # Search for the pattern in the string
+    match = re.search(pattern, raw_output)
+
+    # If a match is found, process it
+    if match:
+        # Find all key-value pairs in the matched string
+        kv_pairs = re.findall(r"(-?\d+): (True|False)", match.group(0))
+
+        # Process each key-value pair
+        result_list = []
+        for key, value in kv_pairs:
+            # Convert key to int, handling negative keys
+            int_key = int(key)
+            if int_key < 0:
+                int_key = abs(int_key)
+                value = "False" if value == "True" else "True"
+
+            # Add the key-value pair to the result dictionary
+            if value == "True":
+                result_list.append(int_key)
+
+        return result_list
+    # If no match is found, return an empty dictionary
+    return []
+
 
 def parse_generated_output(raw_output: str) -> Tuple[List[str], List[str]]:
     # Regular expression to find the lists
@@ -70,8 +101,9 @@ def parse_generated_output(raw_output: str) -> Tuple[List[str], List[str]]:
 
 
 if __name__ == "__main__":
-    model_name = 'llama-2-70b'  # gpt-3.5, gpt-4, llama-2-70b
-    file_lines = open(f'../out_data_{model_name}/data_log.log', 'r').readlines()
+    model_name = 'gpt-4'  # gpt-3.5, gpt-4, llama-2-70b
+    ablation = 'sat'
+    file_lines = open(f'../out_data_{model_name}{ablation}/data_log.log', 'r').readlines()
     correct = 0
     dataframe_dict = {'num_variables':[], 'num_clauses': [], 'alpha':[], 'is_sat':[],
                       'correct': [], 'num_prompt_tokens': [], 'num_completion_tokens': []}
@@ -79,8 +111,8 @@ if __name__ == "__main__":
     for id, line in enumerate(file_lines):
         sample_dict = ast.literal_eval(line.split("Data Sample: ")[1])
 
-        # if not sample_dict['is_sat']:   # if unsat
-        #     continue
+        if not sample_dict['is_sat']:   # if unsat
+            continue
 
         dataframe_dict['num_variables'].append(sample_dict['num_vars'])
         dataframe_dict['num_clauses'].append(sample_dict['num_clauses'])
@@ -91,32 +123,49 @@ if __name__ == "__main__":
         alpha = sample_dict['num_clauses'] / sample_dict['num_vars']
         dataframe_dict['alpha'].append(alpha)
 
-        try:
-            orderable, not_orderable = \
-                parse_generated_output(raw_output=sample_dict['gpt_out'])
-        except AttributeError:
-            orderable, not_orderable = [], []
+        if ablation == '':
+            try:
+                orderable, not_orderable = \
+                    parse_generated_output(raw_output=sample_dict['gpt_out'])
+            except AttributeError:
+                orderable, not_orderable = [], []
 
-        if not sample_dict['is_sat']:  # if unsat
-            if orderable == [] and not_orderable == []:  # gpt predicts unsat
-                dataframe_dict['correct'].append(True)
-            else:
-                dataframe_dict['correct'].append(False)
-        else:  # if sat, verify solution
-            if orderable == [] and not_orderable == []:  # gpt predicts unsat
-                dataframe_dict['correct'].append(False)
-            else:
-                assignment = []
-                for item in orderable:
-                    item = find_best_match(item, sample_dict['menu_items'])
-                    assignment.append(sample_dict['menu_items'].index(item)+1)
-                for item in not_orderable:
-                    item = find_best_match(item, sample_dict['menu_items'])
-                    assignment.append(-sample_dict['menu_items'].index(item)-1)
+            if not sample_dict['is_sat']:  # if unsat
+                if orderable == [] and not_orderable == []:  # gpt predicts unsat
+                    dataframe_dict['correct'].append(True)
+                else:
+                    dataframe_dict['correct'].append(False)
+            else:  # if sat, verify solution
+                if orderable == [] and not_orderable == []:  # gpt predicts unsat
+                    dataframe_dict['correct'].append(False)
+                else:
+                    assignment = []
+                    for item in orderable:
+                        item = find_best_match(item, sample_dict['menu_items'])
+                        assignment.append(sample_dict['menu_items'].index(item)+1)
+                    for item in not_orderable:
+                        item = find_best_match(item, sample_dict['menu_items'])
+                        assignment.append(-sample_dict['menu_items'].index(item)-1)
+                    verified = \
+                        verify_solution(num_vars=sample_dict['num_vars'],
+                                        formula=sample_dict['formula'],
+                                        assignment=assignment) and len(assignment) > 0
+                    if verified:
+                        dataframe_dict['correct'].append(True)
+                    else:
+                        dataframe_dict['correct'].append(False)
+        elif ablation == 'sat':
+            assignment = parse_generated_output_sat(raw_output=sample_dict['gpt_out'])
+            if not sample_dict['is_sat']:   # if unsat
+                if len(assignment) == 0:
+                    dataframe_dict['correct'].append(True)
+                else:
+                    dataframe_dict['correct'].append(False)
+            else:  # if sat, verify solution
                 verified = \
                     verify_solution(num_vars=sample_dict['num_vars'],
                                     formula=sample_dict['formula'],
-                                    assignment=assignment)
+                                    assignment=assignment) and len(assignment) > 0
                 if verified:
                     dataframe_dict['correct'].append(True)
                 else:
@@ -126,9 +175,7 @@ if __name__ == "__main__":
     df = pd.DataFrame(dataframe_dict)
     # Grouping by 'num_variables' and then calculating accuracy for each 'alpha' within those groups
     accuracy_df = df.groupby(['num_variables', 'alpha']).apply(
-    lambda x: np.mean(x['correct'])
-).reset_index(name='accuracy')
-
+    lambda x: np.mean(x['correct'])).reset_index(name='accuracy')
 
     # Plotting
     plt.figure(figsize=(10, 6))
@@ -156,23 +203,24 @@ if __name__ == "__main__":
     plt.grid(True)
     plt.show()
 
-    _3d_df_simple = df.groupby('num_variables')['correct'].mean().reset_index(name='accuracy')
-    plt.figure(figsize=(10, 6))
-    plt.plot(_3d_df_simple['num_variables'], _3d_df_simple['accuracy'], marker='o')
-    plt.xlabel('# variables')
-    plt.ylabel('accuracy')
-    plt.title(f'{model_name} accuracy vs # variables')
-    plt.grid(True)
-    plt.show()
+    # _3d_df_simple = df.groupby('num_variables')['correct'].mean().reset_index(name='accuracy')
+    # plt.figure(figsize=(10, 6))
+    # plt.plot(_3d_df_simple['num_variables'], _3d_df_simple['accuracy'], marker='o')
+    # plt.xlabel('# variables')
+    # plt.ylabel('accuracy')
+    # plt.title(f'{model_name} accuracy vs # variables')
+    # plt.grid(True)
+    # plt.show()
+    #
+    # _3d_df_simple = df.groupby('num_clauses')['correct'].mean().reset_index(name='accuracy')
+    # plt.figure(figsize=(10, 6))
+    # plt.plot(_3d_df_simple['num_clauses'], _3d_df_simple['accuracy'], marker='o')
+    # plt.xlabel('# clauses')
+    # plt.ylabel('accuracy')
+    # plt.title(f'{model_name} accuracy vs # clauses')
+    # plt.grid(True)
+    # plt.show()
 
-    _3d_df_simple = df.groupby('num_clauses')['correct'].mean().reset_index(name='accuracy')
-    plt.figure(figsize=(10, 6))
-    plt.plot(_3d_df_simple['num_clauses'], _3d_df_simple['accuracy'], marker='o')
-    plt.xlabel('# clauses')
-    plt.ylabel('accuracy')
-    plt.title(f'{model_name} accuracy vs # clauses')
-    plt.grid(True)
-    plt.show()
     # Plot distributions
     # plot_distribution(num_vars_list, 'Distribution of num_vars', 'num_vars', 'Frequency')
     # plot_distribution(num_clauses_list, 'Distribution of num_clauses', 'num_clauses', 'Frequency')
