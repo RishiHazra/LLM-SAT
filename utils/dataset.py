@@ -30,7 +30,7 @@ class SatDataset(Dataset):
     def process(self, data_path:str):
         samples = []
         sat_data = pkl.load(open(data_path, 'rb'))
-        for ind, num_vars, num_clauses, formula, is_sat, _ in sat_data: # (5101, 1151), (4721, 1716)
+        for ind, num_vars, num_clauses, formula, is_sat, _ in sat_data[2645:]: # (5101, 1151), (4721, 1716), (), (,1319)
             preferences, menu_items = self.sat_lang.map_2_lang(num_vars, formula, num_clauses)
             samples.append(vars(SatSample(num_vars, num_clauses, formula, is_sat, preferences, menu_items)))
         return samples
