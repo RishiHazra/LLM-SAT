@@ -3,6 +3,8 @@ import ast
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
 from typing import List, Tuple, Dict
 from verify_solution import verify_solution
 from data_analysis import plot_comparison, plot_distribution, plot_dicts, plot_bar_comparison
@@ -106,13 +108,14 @@ if __name__ == "__main__":
     file_lines = open(f'../out_data_{model_name}{ablation}/data_log.log', 'r').readlines()
     correct = 0
     dataframe_dict = {'num_variables':[], 'num_clauses': [], 'alpha':[], 'is_sat':[],
-                      'correct': [], 'num_prompt_tokens': [], 'num_completion_tokens': []}
+                      'correct': [], 'num_prompt_tokens': [], 'num_completion_tokens': [],
+                      'pred_is_sat': []}
 
     for id, line in enumerate(file_lines):
         sample_dict = ast.literal_eval(line.split("Data Sample: ")[1])
 
-        if not sample_dict['is_sat']:   # if unsat
-            continue
+        # if not sample_dict['is_sat']:   # if unsat
+        #     continue
 
         dataframe_dict['num_variables'].append(sample_dict['num_vars'])
         dataframe_dict['num_clauses'].append(sample_dict['num_clauses'])
@@ -133,8 +136,10 @@ if __name__ == "__main__":
             if not sample_dict['is_sat']:  # if unsat
                 if orderable == [] and not_orderable == []:  # gpt predicts unsat
                     dataframe_dict['correct'].append(True)
+                    dataframe_dict['pred_is_sat'].append(False)  # pred unsat
                 else:
                     dataframe_dict['correct'].append(False)
+                    dataframe_dict['pred_is_sat'].append(True)  # pred sat
             else:  # if sat, verify solution
                 if orderable == [] and not_orderable == []:  # gpt predicts unsat
                     dataframe_dict['correct'].append(False)
@@ -154,13 +159,21 @@ if __name__ == "__main__":
                         dataframe_dict['correct'].append(True)
                     else:
                         dataframe_dict['correct'].append(False)
+                # check if sat is predicted as sat or unsat
+                if len(orderable) == 0 and len(not_orderable) == 0:
+                    dataframe_dict['pred_is_sat'].append(False)  # pred unsat
+                else:
+                    dataframe_dict['pred_is_sat'].append(True)  # pred unsat
+
         elif ablation == 'sat':
             assignment = parse_generated_output_sat(raw_output=sample_dict['gpt_out'])
             if not sample_dict['is_sat']:   # if unsat
                 if len(assignment) == 0:
                     dataframe_dict['correct'].append(True)
+                    dataframe_dict['pred_is_sat'].append(False)  # pred unsat
                 else:
                     dataframe_dict['correct'].append(False)
+                    dataframe_dict['pred_is_sat'].append(True)  # pred sat
             else:  # if sat, verify solution
                 verified = \
                     verify_solution(num_vars=sample_dict['num_vars'],
@@ -170,6 +183,11 @@ if __name__ == "__main__":
                     dataframe_dict['correct'].append(True)
                 else:
                     dataframe_dict['correct'].append(False)
+                # check if sat is predicted as sat or unsat
+                if len(assignment) > 0:
+                    dataframe_dict['pred_is_sat'].append(True)  # pred sat
+                else:
+                    dataframe_dict['pred_is_sat'].append(False)  # pred unsat
 
     # Creating the DataFrame
     df = pd.DataFrame(dataframe_dict)
@@ -190,6 +208,7 @@ if __name__ == "__main__":
     plt.legend()
     plt.title(f'{model_name} accuracy vs alpha')
     plt.grid(True)
+    plt.tight_layout()
     plt.show()
 
     accuracy_df_simple = df.groupby('alpha')['correct'].mean().reset_index(name='accuracy')
@@ -201,6 +220,20 @@ if __name__ == "__main__":
     plt.ylabel('accuracy')
     plt.title(f'{model_name} accuracy vs alpha')
     plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+    high_alpha_df = df[df['alpha'] >= 0][["pred_is_sat", "is_sat"]]
+    labels = ['unSAT', 'SAT']
+    # Generating the confusion matrix
+    conf_matrix = confusion_matrix(high_alpha_df['pred_is_sat'], high_alpha_df['is_sat'])
+    # Plotting the confusion matrix using seaborn
+    sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues',
+                xticklabels=labels, yticklabels=labels)
+    plt.xlabel('Actual')
+    plt.ylabel('Predicted')
+    plt.title('Confusion Matrix')
+    plt.tight_layout()
     plt.show()
 
     # _3d_df_simple = df.groupby('num_variables')['correct'].mean().reset_index(name='accuracy')
@@ -210,6 +243,7 @@ if __name__ == "__main__":
     # plt.ylabel('accuracy')
     # plt.title(f'{model_name} accuracy vs # variables')
     # plt.grid(True)
+    # plt.tight_layout()
     # plt.show()
     #
     # _3d_df_simple = df.groupby('num_clauses')['correct'].mean().reset_index(name='accuracy')
@@ -219,6 +253,7 @@ if __name__ == "__main__":
     # plt.ylabel('accuracy')
     # plt.title(f'{model_name} accuracy vs # clauses')
     # plt.grid(True)
+    # plt.tight_layout()
     # plt.show()
 
     # Plot distributions
