@@ -1,10 +1,14 @@
 import torch
+import os
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
+os.environ["TRANSFORMERS_CACHE"] = os.environ["VSC_SCRATCH"] + '/.cache'
+#print(os.environ["TRANSFORMERS_CACHE"])
 
 def query_llama(prompt):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     print(device)
-    # access_token = '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'
+    access_token = 'your-token'
     model_name = "meta-llama/Llama-2-70b-chat-hf"
 
     bnb_config = BitsAndBytesConfig(
