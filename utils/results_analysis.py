@@ -104,7 +104,7 @@ def parse_generated_output(raw_output: str) -> Tuple[List[str], List[str]]:
 
 if __name__ == "__main__":
     model_name = 'gpt-4'  # gpt-3.5, gpt-4, llama-2-70b
-    ablation = 'sat'
+    ablation = ''
     file_lines = open(f'../out_data_{model_name}{ablation}/data_log.log', 'r').readlines()
     correct = 0
     dataframe_dict = {'num_variables':[], 'num_clauses': [], 'alpha':[], 'is_sat':[],
@@ -246,15 +246,16 @@ if __name__ == "__main__":
     # plt.tight_layout()
     # plt.show()
     #
-    # _3d_df_simple = df.groupby('num_clauses')['correct'].mean().reset_index(name='accuracy')
-    # plt.figure(figsize=(10, 6))
-    # plt.plot(_3d_df_simple['num_clauses'], _3d_df_simple['accuracy'], marker='o')
-    # plt.xlabel('# clauses')
-    # plt.ylabel('accuracy')
-    # plt.title(f'{model_name} accuracy vs # clauses')
-    # plt.grid(True)
-    # plt.tight_layout()
-    # plt.show()
+    _3d_df_simple = df.groupby('num_clauses')['correct'].mean().reset_index(name='accuracy')
+    plt.figure(figsize=(10, 6))
+    plt.plot(_3d_df_simple['num_clauses'], _3d_df_simple['accuracy'], marker='o')
+    plt.xlabel('# clauses')
+    plt.ylabel('accuracy')
+    plt.yticks(np.arange(0, 1.1, 0.1))
+    plt.title(f'{model_name} accuracy vs # clauses')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
     # Plot distributions
     # plot_distribution(num_vars_list, 'Distribution of num_vars', 'num_vars', 'Frequency')
