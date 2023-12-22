@@ -102,9 +102,36 @@ def parse_generated_output(raw_output: str) -> Tuple[List[str], List[str]]:
     return orderable_list, not_orderable_list
 
 
+# Further refined function to correctly parse the CNF formula from LaTeX format
+def parse_generated_output_translate(raw_output: str, item_to_number: Dict[str, int]) -> List[List]:
+    # Extract the clauses from the LaTeX formatted string
+    # Remove all LaTeX formatting and split by 'and' (\\land)
+    raw_output = raw_output.replace('lnot', 'neg').replace('wedge', 'land').replace('vee','lor').replace('\\text{', '').replace('}', '').replace(r'\\', '')
+    raw_output = raw_output.replace('\\\\\n&','').replace('&', '')
+    clauses = re.findall(r'\((.*?)\)', raw_output)
+
+    parsed_clauses = []
+    for clause in clauses:
+        clause = clause.replace('(', '').replace(')', '')
+        # Split each clause into literals separated by 'or' (\\lor)
+        literals = clause.split('\\lor')
+        parsed_clause = []
+        for literal in literals:
+            literal = literal.strip()
+            # Check if the literal is negated
+            if literal.startswith('\\neg'):
+                item = literal[4:].strip()  # Remove '\\neg ' prefix
+                parsed_clause.append(-item_to_number[item])
+            else:
+                parsed_clause.append(item_to_number[literal])
+        parsed_clauses.append(parsed_clause)
+
+    return parsed_clauses
+
+
 if __name__ == "__main__":
-    model_name = 'gpt-4'  # gpt-3.5, gpt-4, llama-2-70b
-    ablation = ''
+    model_name = 'gpt-4'  # gpt-3.5, gpt-4, llama-2-70b, text-bison@002, gemini-pro
+    ablation = 'translate'  # '', 'sat', 'translate'
     file_lines = open(f'../out_data_{model_name}{ablation}/data_log.log', 'r').readlines()
     correct = 0
     dataframe_dict = {'num_variables':[], 'num_clauses': [], 'alpha':[], 'is_sat':[],
@@ -189,6 +216,33 @@ if __name__ == "__main__":
                 else:
                     dataframe_dict['pred_is_sat'].append(False)  # pred unsat
 
+        elif ablation == 'translate':
+            menu_items = sample_dict['menu_items']
+            item_nums = np.arange(1, len(menu_items)+1)
+            item2num = dict(zip(menu_items, item_nums))
+            try:
+                gen_formula = parse_generated_output_translate(raw_output=sample_dict['gpt_out'],
+                                                           item_to_number=item2num)
+                # verify isomorphism of generated formula
+                pred_true = list(zip(gen_formula, sample_dict['formula']))
+                formula_comparison = \
+                    [True if set(pred_clause) == set(true_clause) else False for pred_clause, true_clause in pred_true]
+                verified = True if sum(formula_comparison) == len(sample_dict['formula']) else False
+                if verified:
+                    dataframe_dict['correct'].append(True)
+                else:
+                    dataframe_dict['correct'].append(True)
+            except KeyError:
+                dataframe_dict['correct'].append(False)
+            # bogus code
+            if sample_dict['is_sat']:
+                dataframe_dict['pred_is_sat'].append(True)
+            else:
+                dataframe_dict['pred_is_sat'].append(False)
+
+        else:
+            raise NotImplemented
+
     # Creating the DataFrame
     df = pd.DataFrame(dataframe_dict)
     # Grouping by 'num_variables' and then calculating accuracy for each 'alpha' within those groups
@@ -196,6 +250,7 @@ if __name__ == "__main__":
     lambda x: np.mean(x['correct'])).reset_index(name='accuracy')
 
     # Plotting
+    # plt.interactive(False)
     plt.figure(figsize=(10, 6))
     for num_vars in accuracy_df['num_variables'].unique():
         # if num_vars in [4,6,10]:
@@ -253,6 +308,24 @@ if __name__ == "__main__":
     plt.ylabel('accuracy')
     plt.yticks(np.arange(0, 1.1, 0.1))
     plt.title(f'{model_name} accuracy vs # clauses')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+    # correlation between prompt_tokens and completion_tokens
+    corr_data = df[['num_prompt_tokens', 'num_completion_tokens']]
+    correlation = corr_data.corr()
+    # Performing linear regression
+    slope, intercept = np.polyfit(corr_data['num_prompt_tokens'], corr_data['num_completion_tokens'], 1)
+    line = slope * np.array(corr_data['num_prompt_tokens']) + intercept
+    # Plotting the correlation
+    plt.figure(figsize=(10, 6))
+    plt.scatter(corr_data['num_prompt_tokens'], corr_data['num_completion_tokens'])
+    plt.plot(corr_data['num_prompt_tokens'], line, color='red', label='Fit Line: y={:.2f}x+{:.2f}'.format(slope, intercept))
+    plt.title('Correlation Plot between # Prompt Tokens and # Completion Tokens')
+    plt.xlabel('# Prompt Tokens')
+    plt.ylabel('# Completion Tokens')
+    plt.yticks(np.arange(0, 4100, 500))
     plt.grid(True)
     plt.tight_layout()
     plt.show()

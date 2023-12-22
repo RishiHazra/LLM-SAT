@@ -9,7 +9,7 @@ class DataLogger:
         self.log_file = log_file
 
     def log(self, data_sample):
-        with open(self.log_file, 'a') as file:
+        with open(self.log_file, 'a', encoding='utf-8') as file:
             file.write(str(data_sample) + '\n')
 
 

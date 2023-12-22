@@ -14,8 +14,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 os.environ["ROOT_PATH"] = os.getcwd()
 sys.path.append(os.environ["ROOT_PATH"])
-
+# os.environ["TRANSFORMERS_CACHE"] = 'checkpoint/'
 openai.api_key = os.getenv("OPENAI_API_KEY")
+access_token = os.getenv("HF_ACCESS_TOKEN")
 
 
 # openai.organization = ""
@@ -56,7 +57,7 @@ def query_llama(batch_preferences: List[str]) -> Tuple[List[str], List[int], Lis
               for preferences in batch_preferences]
 
     tokenizer.pad_token = tokenizer.eos_token
-    tokenized_prompts = tokenizer(prompt, padding=True, return_tensors="pt").to(device)
+    tokenized_prompts = tokenizer(prompt, padding=True, return_token_type_ids=False, return_tensors="pt").to(device)
     # num_prompt_tokens = model_inputs.input_ids.shape[-1]
     num_prompt_tokens = \
         torch.sum(tokenized_prompts.attention_mask, dim=-1).cpu().numpy()  # attention ids = 1 and pad ids = 0
@@ -68,15 +69,15 @@ def query_llama(batch_preferences: List[str]) -> Tuple[List[str], List[int], Lis
 
 
 if __name__ == "__main__":
-    ablation = 'sat'  # 'menu', 'sat', 'translate'
+    ablation = 'translate'  # 'menu', 'sat', 'translate'
     # system message to prompt the model
     # different system messages for different ablations
     system_message = system_messages.names[ablation]
-    model_name = 'gpt-4'  # gpt-4, gpt-3.5, llama-2-70b
-    data_path = os.path.join(os.environ["ROOT_PATH"], 'dataset_float_alpha.pkl')
+    model_name = 'gpt-4'  # gpt-4, gpt-3.5, llama-2-70b, llama-2-13b
+    data_path = os.path.join(os.environ["ROOT_PATH"], 'dataset.pkl')
     sat_dataset = SatDataset(root_path=os.environ["ROOT_PATH"], data_path=data_path)
 
-    if model_name == 'llama-2-70b':
+    if 'llama' in model_name:
         batch_size = 1
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
@@ -84,10 +85,14 @@ if __name__ == "__main__":
             bnb_4bit_quant_type="nf4",
             bnb_4bit_compute_dtype=torch.bfloat16
         )
-        model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-70b-chat-hf",
+        model = AutoModelForCausalLM.from_pretrained(f"meta-llama/Llama-2-{model_name.split('-')[-1]}-chat-hf",
                                                      device_map="auto",
-                                                     quantization_config=bnb_config)
-        tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-70b-chat-hf", use_fast=True)
+                                                     quantization_config=bnb_config,
+                                                     use_auth_token=access_token)
+        tokenizer = AutoTokenizer.from_pretrained(f"meta-llama/Llama-2-{model_name.split('-')[-1]}-chat-hf",
+                                                  use_fast=True,
+                                                  use_auth_token=access_token
+                                                  )
     else:
         batch_size = 1
     sat_loader = DataLoader(sat_dataset, batch_size=batch_size, shuffle=True, collate_fn=custom_collate)
@@ -98,7 +103,7 @@ if __name__ == "__main__":
         data_sample = [DotMap(sample) for sample in data_sample]
         while True:
             try:
-                if model_name == 'llama-2-70b':
+                if 'llama' in model_name:
                     data_input = [sample.preferences if ablation in ['menu', 'translate'] else sample.formula \
                                   for sample in data_sample]
                     gen_out_list, num_prompt_tokens_list, num_completion_tokens_list = \
