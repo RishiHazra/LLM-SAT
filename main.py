@@ -15,7 +15,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 os.environ["ROOT_PATH"] = os.getcwd()
 sys.path.append(os.environ["ROOT_PATH"])
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
 # openai.organization = ""
@@ -71,13 +71,16 @@ if __name__ == "__main__":
     ablation = 'sat'  # 'menu', 'sat', 'translate'
     # system message to prompt the model
     # different system messages for different ablations
+    job_number = sys.argv[1]
     system_message = system_messages.names[ablation]
-    model_name = 'gpt-4'  # gpt-4, gpt-3.5, llama-2-70b
+    model_name = 'llama-2-70b'  # gpt-4, gpt-3.5, llama-2-70b
     data_path = os.path.join(os.environ["ROOT_PATH"], 'dataset_float_alpha.pkl')
     sat_dataset = SatDataset(root_path=os.environ["ROOT_PATH"], data_path=data_path)
 
+    os.environ["TRANSFORMERS_CACHE"] = os.environ["VSC_SCRATCH"] + '/.cache'
+
     if model_name == 'llama-2-70b':
-        batch_size = 1
+        batch_size = 15
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_use_double_quant=True,
@@ -111,7 +114,7 @@ if __name__ == "__main__":
                                         data_sample[ind].formula, data_sample[ind].is_sat,
                                         data_sample[ind].preferences, data_sample[ind].menu_items,
                                         gen_out, num_prompt_tokens, num_completion_tokens,
-                                        ablation=ablation)
+                                        ablation=ablation, job_num=job_number)
                 else:
                     # for GPT-*, the batch size = 1
                     data_input = data_sample[0].preferences if ablation in ['menu', 'translate'] \

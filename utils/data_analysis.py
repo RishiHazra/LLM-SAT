@@ -9,13 +9,13 @@ class DataLogger:
         self.log_file = log_file
 
     def log(self, data_sample):
-        with open(self.log_file, 'a') as file:
+        with open(self.log_file, 'a', encoding='utf-8') as file:
             file.write(str(data_sample) + '\n')
 
 
 # A function to log data from each data sample
 def log_data_sample(model_name, num_vars, num_clauses, formula, is_sat, preferences, menu_items,
-                    gpt_out, num_prompt_tokens, num_completion_tokens, ablation=''):
+                    gpt_out, num_prompt_tokens, num_completion_tokens, ablation='', job_num=''):
     ablation = '' if ablation == 'menu' else ablation
     if ablation == 'sat':
         menu_items = ''
@@ -24,7 +24,10 @@ def log_data_sample(model_name, num_vars, num_clauses, formula, is_sat, preferen
     if not os.path.exists(out_data_path):
         os.makedirs(out_data_path)
 
-    logger = DataLogger(os.path.join(out_data_path, 'data_log.log'))
+    data_log_file_name = 'data_log.log'
+    if job_num != '':
+        data_log_file_name = f'job{job_num}_{data_log_file_name}'
+    logger = DataLogger(os.path.join(out_data_path, data_log_file_name))
 
     data_sample = {
         'num_vars': num_vars,
