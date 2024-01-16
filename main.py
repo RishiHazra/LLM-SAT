@@ -69,12 +69,14 @@ def query_llama(batch_preferences: List[str]) -> Tuple[List[str], List[int], Lis
 
 
 if __name__ == "__main__":
-    ablation = 'translate'  # 'menu', 'sat', 'translate'
+    ablation = 'menu'  # 'menu', 'sat', 'translate'
+    two_sat_flag = True
+    model_name = 'gpt-4'  # gpt-4, gpt-3.5, llama-2-70b, llama-2-13b
     # system message to prompt the model
     # different system messages for different ablations
     system_message = system_messages.names[ablation]
-    model_name = 'gpt-4'  # gpt-4, gpt-3.5, llama-2-70b, llama-2-13b
-    data_path = os.path.join(os.environ["ROOT_PATH"], 'dataset.pkl')
+    append = '_2sat' if two_sat_flag else ''
+    data_path = os.path.join(os.environ["ROOT_PATH"], f'dataset{append}.pkl')
     sat_dataset = SatDataset(root_path=os.environ["ROOT_PATH"], data_path=data_path)
 
     if 'llama' in model_name:
@@ -116,7 +118,7 @@ if __name__ == "__main__":
                                         data_sample[ind].formula, data_sample[ind].is_sat,
                                         data_sample[ind].preferences, data_sample[ind].menu_items,
                                         gen_out, num_prompt_tokens, num_completion_tokens,
-                                        ablation=ablation)
+                                        ablation=ablation, two_sat_flag=two_sat_flag)
                 else:
                     # for GPT-*, the batch size = 1
                     data_input = data_sample[0].preferences if ablation in ['menu', 'translate'] \
@@ -126,7 +128,7 @@ if __name__ == "__main__":
                                     data_sample[0].formula, data_sample[0].is_sat,
                                     data_sample[0].preferences, data_sample[0].menu_items,
                                     gen_out, num_prompt_tokens, num_completion_tokens,
-                                    ablation=ablation)
+                                    ablation=ablation, two_sat_flag=two_sat_flag)
                 break
             except openai.error.RateLimitError or openai.error.APIError or \
                    openai.error.ServiceUnavailableError or openai.error.Timeout:

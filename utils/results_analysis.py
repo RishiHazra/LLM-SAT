@@ -1,3 +1,4 @@
+import os.path
 import re
 import ast
 import numpy as np
@@ -121,9 +122,12 @@ def parse_generated_output_translate(raw_output: str, item_to_number: Dict[str, 
             # Check if the literal is negated
             if literal.startswith('\\neg'):
                 item = literal[4:].strip()  # Remove '\\neg ' prefix
-                parsed_clause.append(-item_to_number[item])
+                # item = find_best_match(item, sample_dict['menu_items'])
+                parsed_clause.append(-item_to_number[item.lower()])
             else:
-                parsed_clause.append(item_to_number[literal])
+                item = literal.lower()
+                # item = find_best_match(literal.lower(), sample_dict['menu_items'])
+                parsed_clause.append(item_to_number[item])
         parsed_clauses.append(parsed_clause)
 
     return parsed_clauses
@@ -131,8 +135,18 @@ def parse_generated_output_translate(raw_output: str, item_to_number: Dict[str, 
 
 if __name__ == "__main__":
     model_name = 'gpt-4'  # gpt-3.5, gpt-4, llama-2-70b, text-bison@002, gemini-pro
-    ablation = 'translate'  # '', 'sat', 'translate'
-    file_lines = open(f'../out_data_{model_name}{ablation}/data_log.log', 'r').readlines()
+    ablation = ''  # '', 'sat', 'translate'
+    append = '_2sat'  # '', '_2sat'
+
+    file_lines = open(f'../out_data_{model_name}{ablation}/data_log{append}.log', 'r').readlines()
+
+    map2title = {'gpt-4': 'GPT-4', 'gpt-3.5': 'GPT-3.5', 'llama-2-70b': 'Llama-2-70B',
+                 'text-bison@002': 'PaLM 2 (text-bison)', 'gemini-pro': 'Gemini Pro',
+                 'llama-2-13b': 'Llama-2-13B'  }
+    model_name = map2title[model_name]
+    ablation = 'menu' if ablation == '' else ablation
+    plot_path = f'plots/{model_name}/{ablation}/'
+    os.makedirs(plot_path, exist_ok=True)
     correct = 0
     dataframe_dict = {'num_variables':[], 'num_clauses': [], 'alpha':[], 'is_sat':[],
                       'correct': [], 'num_prompt_tokens': [], 'num_completion_tokens': [],
@@ -153,7 +167,7 @@ if __name__ == "__main__":
         alpha = sample_dict['num_clauses'] / sample_dict['num_vars']
         dataframe_dict['alpha'].append(alpha)
 
-        if ablation == '':
+        if ablation == 'menu':
             try:
                 orderable, not_orderable = \
                     parse_generated_output(raw_output=sample_dict['gpt_out'])
@@ -161,14 +175,15 @@ if __name__ == "__main__":
                 orderable, not_orderable = [], []
 
             if not sample_dict['is_sat']:  # if unsat
-                if orderable == [] and not_orderable == []:  # gpt predicts unsat
+                if len(orderable) == 0 and len(not_orderable) == 0\
+                        :  # gpt predicts unsat
                     dataframe_dict['correct'].append(True)
                     dataframe_dict['pred_is_sat'].append(False)  # pred unsat
                 else:
                     dataframe_dict['correct'].append(False)
                     dataframe_dict['pred_is_sat'].append(True)  # pred sat
             else:  # if sat, verify solution
-                if orderable == [] and not_orderable == []:  # gpt predicts unsat
+                if len(orderable) == 0 and len(not_orderable) == 0:  # gpt predicts unsat
                     dataframe_dict['correct'].append(False)
                 else:
                     assignment = []
@@ -194,6 +209,9 @@ if __name__ == "__main__":
 
         elif ablation == 'sat':
             assignment = parse_generated_output_sat(raw_output=sample_dict['gpt_out'])
+            # only use those variables in the assignment which are part of the formula
+            # sometimes the LLM creates and assigns values to new variables
+            assignment = list(set(assignment).intersection(np.arange(1,sample_dict['num_vars']+1,1)))
             if not sample_dict['is_sat']:   # if unsat
                 if len(assignment) == 0:
                     dataframe_dict['correct'].append(True)
@@ -257,39 +275,54 @@ if __name__ == "__main__":
             subset = accuracy_df[accuracy_df['num_variables'] == num_vars]
             plt.plot(subset['alpha'], subset['accuracy'], marker='o', label=f'Variables: {num_vars}')
 
-    plt.xlabel('alpha')
-    plt.ylabel('accuracy')
-    plt.yticks(np.arange(0, 1.1, 0.1))
+    plt.xlabel('alpha', fontsize=16)
+    plt.ylabel('accuracy', fontsize=16)
+    plt.yticks(np.arange(0, 1.1, 0.1), fontsize=13)
+    plt.xticks(fontsize=13)
     plt.legend()
-    plt.title(f'{model_name} accuracy vs alpha')
+    plt.title(f'{model_name}', fontsize=18)
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    # plt.show()
+    plt.savefig(f'{plot_path}/all_alpha{append}.png')
 
     accuracy_df_simple = df.groupby('alpha')['correct'].mean().reset_index(name='accuracy')
     # Plotting
     plt.figure(figsize=(10, 6))
     plt.plot(accuracy_df_simple['alpha'], accuracy_df_simple['accuracy'], marker='o')
     plt.yticks(np.arange(0,1.1,0.1))
-    plt.xlabel('alpha')
-    plt.ylabel('accuracy')
-    plt.title(f'{model_name} accuracy vs alpha')
+    plt.xlabel('alpha', fontsize=16)
+    plt.ylabel('accuracy', fontsize=16)
+    plt.xticks(fontsize=13)
+    plt.yticks(fontsize=13)
+    plt.title(f'{model_name}', fontsize=18)
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    # plt.show()
+    plt.savefig(f'{plot_path}/mean_alpha{append}.png')
 
+    plt.figure(figsize=(10, 6))
     high_alpha_df = df[df['alpha'] >= 0][["pred_is_sat", "is_sat"]]
     labels = ['unSAT', 'SAT']
     # Generating the confusion matrix
     conf_matrix = confusion_matrix(high_alpha_df['pred_is_sat'], high_alpha_df['is_sat'])
     # Plotting the confusion matrix using seaborn
-    sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues',
+    heatmap = sns.heatmap(conf_matrix, annot=False, cmap='Blues',
                 xticklabels=labels, yticklabels=labels)
-    plt.xlabel('Actual')
-    plt.ylabel('Predicted')
-    plt.title('Confusion Matrix')
+    # Get the color bar
+    cbar = heatmap.collections[0].colorbar
+
+    # Remove the labels from the color bar
+    cbar.set_ticks([])
+    plt.xlabel('Actual', fontsize=16)
+    plt.ylabel('Predicted', fontsize=16)
+    # Increase font size of the tick labels
+    plt.xticks(fontsize=13)
+    plt.yticks(fontsize=13)
+    plt.title(f'{model_name}', fontsize=18)
     plt.tight_layout()
-    plt.show()
+    # plt.show()
+    plt.savefig(f'{plot_path}/cf{append}.png')
 
     # _3d_df_simple = df.groupby('num_variables')['correct'].mean().reset_index(name='accuracy')
     # plt.figure(figsize=(10, 6))
@@ -304,13 +337,16 @@ if __name__ == "__main__":
     _3d_df_simple = df.groupby('num_clauses')['correct'].mean().reset_index(name='accuracy')
     plt.figure(figsize=(10, 6))
     plt.plot(_3d_df_simple['num_clauses'], _3d_df_simple['accuracy'], marker='o')
-    plt.xlabel('# clauses')
-    plt.ylabel('accuracy')
+    plt.xlabel('# clauses', fontsize=16)
+    plt.ylabel('accuracy', fontsize=16)
+    plt.xticks(fontsize=13)
+    plt.yticks(fontsize=13)
     plt.yticks(np.arange(0, 1.1, 0.1))
-    plt.title(f'{model_name} accuracy vs # clauses')
+    plt.title(f'{model_name}', fontsize=18)
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    # plt.show()
+    plt.savefig(f'{plot_path}/clauses{append}.png')
 
     # correlation between prompt_tokens and completion_tokens
     corr_data = df[['num_prompt_tokens', 'num_completion_tokens']]
@@ -322,13 +358,16 @@ if __name__ == "__main__":
     plt.figure(figsize=(10, 6))
     plt.scatter(corr_data['num_prompt_tokens'], corr_data['num_completion_tokens'])
     plt.plot(corr_data['num_prompt_tokens'], line, color='red', label='Fit Line: y={:.2f}x+{:.2f}'.format(slope, intercept))
-    plt.title('Correlation Plot between # Prompt Tokens and # Completion Tokens')
-    plt.xlabel('# Prompt Tokens')
-    plt.ylabel('# Completion Tokens')
+    plt.title(f'{model_name}', fontsize=18)
+    plt.xlabel('# prompt tokens', fontsize=16)
+    plt.ylabel('# completion tokens', fontsize=16)
+    plt.xticks(fontsize=13)
+    plt.yticks(fontsize=13)
     plt.yticks(np.arange(0, 4100, 500))
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    # plt.show()
+    plt.savefig(f'{plot_path}/corr_tokens{append}.png')
 
     # Plot distributions
     # plot_distribution(num_vars_list, 'Distribution of num_vars', 'num_vars', 'Frequency')

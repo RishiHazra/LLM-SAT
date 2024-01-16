@@ -34,7 +34,7 @@ class SatDataset(Dataset):
         # ablations: sat
         # gpt-4 (3135,2558), gpt-3.5 (2912,2730), llama-2 ()
         for ind, num_vars, num_clauses, formula, is_sat, _ in sat_data:
-            # if num_vars != 3:
+            # if num_vars != 4:
             #     continue
             preferences, menu_items = self.sat_lang.map_2_lang(num_vars, formula, num_clauses)
             samples.append(vars(SatSample(num_vars, num_clauses, formula, is_sat, preferences, menu_items)))
