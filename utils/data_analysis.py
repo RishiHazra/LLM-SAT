@@ -15,7 +15,7 @@ class DataLogger:
 
 # A function to log data from each data sample
 def log_data_sample(model_name, num_vars, num_clauses, formula, is_sat, preferences, menu_items,
-                    gpt_out, num_prompt_tokens, num_completion_tokens, ablation='', two_sat_flag=False):
+                    gpt_out, num_prompt_tokens, num_completion_tokens, ablation='', job_num='', two_sat_flag=False):
     ablation = '' if ablation == 'menu' else ablation
     if ablation == 'sat':
         menu_items = ''
@@ -25,8 +25,11 @@ def log_data_sample(model_name, num_vars, num_clauses, formula, is_sat, preferen
         os.makedirs(out_data_path)
 
     append = '_2sat' if two_sat_flag else ''
-
-    logger = DataLogger(os.path.join(out_data_path, f'data_log{append}.log'))
+    # logger = DataLogger(os.path.join(out_data_path, f'data_log{append}.log'))
+    data_log_file_name = f'data_log{append}.log'
+    if job_num != '':
+        data_log_file_name = f'job{job_num}_{data_log_file_name}'
+    logger = DataLogger(os.path.join(out_data_path, data_log_file_name))
 
     data_sample = {
         'num_vars': num_vars,
