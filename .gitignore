@@ -1,6 +1,16 @@
 slurm*.out
 slurm*.err
 .vscode
+.idea
+.DS_Store
+src/PyMiniSolvers
+src/d4
+tmp
+output
+out_*
+data
+*-venv
+**/__pycache__/
 
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python
