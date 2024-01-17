@@ -138,7 +138,7 @@ if __name__ == "__main__":
     ablation = ''  # '', 'sat', 'translate'
     append = '_2sat'  # '', '_2sat'
 
-    file_lines = open(f'../out_data_{model_name}{ablation}/data_log{append}.log', 'r').readlines()
+    file_lines = open(f'../out_data/{model_name}{ablation}/data_log{append}.log', 'r').readlines()
 
     map2title = {'gpt-4': 'GPT-4', 'gpt-3.5': 'GPT-3.5', 'llama-2-70b': 'Llama-2-70B',
                  'text-bison@002': 'PaLM 2 (text-bison)', 'gemini-pro': 'Gemini Pro',
@@ -151,11 +151,13 @@ if __name__ == "__main__":
     dataframe_dict = {'num_variables':[], 'num_clauses': [], 'alpha':[], 'is_sat':[],
                       'correct': [], 'num_prompt_tokens': [], 'num_completion_tokens': [],
                       'pred_is_sat': []}
+    if append != '_2sat':
+        dataframe_dict['model_count'] = []
 
     for id, line in enumerate(file_lines):
         sample_dict = ast.literal_eval(line.split("Data Sample: ")[1])
 
-        # if not sample_dict['is_sat']:   # if unsat
+        # if not sample_dict['is_sat']:   # skip all unsat samples / plot only sat samples
         #     continue
 
         dataframe_dict['num_variables'].append(sample_dict['num_vars'])
@@ -163,6 +165,8 @@ if __name__ == "__main__":
         dataframe_dict['is_sat'].append(sample_dict['is_sat'])
         dataframe_dict['num_prompt_tokens'].append(sample_dict['num_prompt_tokens'])
         dataframe_dict['num_completion_tokens'].append(sample_dict['num_completion_tokens'])
+        if append != '_2sat':
+            dataframe_dict['model_count'].append(sample_dict['model_count'])
 
         alpha = sample_dict['num_clauses'] / sample_dict['num_vars']
         dataframe_dict['alpha'].append(alpha)
@@ -287,7 +291,6 @@ if __name__ == "__main__":
     plt.savefig(f'{plot_path}/all_alpha{append}.png')
 
     accuracy_df_simple = df.groupby('alpha')['correct'].mean().reset_index(name='accuracy')
-    # Plotting
     plt.figure(figsize=(10, 6))
     plt.plot(accuracy_df_simple['alpha'], accuracy_df_simple['accuracy'], marker='o')
     plt.yticks(np.arange(0,1.1,0.1))
@@ -300,6 +303,22 @@ if __name__ == "__main__":
     plt.tight_layout()
     # plt.show()
     plt.savefig(f'{plot_path}/mean_alpha{append}.png')
+
+    if append != '_2sat':
+        model_count_df = df.groupby('model_count').filter(lambda x: len(x) >= 20)
+        model_count_df = model_count_df.groupby('model_count')['correct'].mean().reset_index(name='accuracy')
+        plt.figure(figsize=(10, 6))
+        plt.plot(model_count_df['model_count'], model_count_df['accuracy'], marker='o')
+        # plt.yticks(np.arange(0, 1.1, 0.1))
+        plt.xlabel('model count', fontsize=16)
+        plt.ylabel('accuracy', fontsize=16)
+        plt.xticks(fontsize=13)
+        plt.yticks(fontsize=13)
+        plt.title(f'{model_name}', fontsize=18)
+        plt.grid(True)
+        plt.tight_layout()
+        # plt.show()
+        plt.savefig(f'{plot_path}/model_count{append}.png')
 
     plt.figure(figsize=(10, 6))
     high_alpha_df = df[df['alpha'] >= 0][["pred_is_sat", "is_sat"]]

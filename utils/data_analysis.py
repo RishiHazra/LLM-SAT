@@ -20,7 +20,7 @@ def log_data_sample(model_name, num_vars, num_clauses, formula, is_sat, preferen
     if ablation == 'sat':
         menu_items = ''
         preferences = ''
-    out_data_path = f'out_data_{model_name}{ablation}'
+    out_data_path = f'out_data/{model_name}{ablation}'
     if not os.path.exists(out_data_path):
         os.makedirs(out_data_path)
 

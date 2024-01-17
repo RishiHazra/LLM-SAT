@@ -69,8 +69,8 @@ def query_llama(batch_preferences: List[str]) -> Tuple[List[str], List[int], Lis
 
 
 if __name__ == "__main__":
-    ablation = 'translate'  # 'menu', 'sat', 'translate'
-    two_sat_flag = True
+    ablation = 'menu'  # 'menu', 'sat', 'translate'
+    two_sat_flag = False
     model_name = 'gpt-4'  # gpt-4, gpt-3.5, llama-2-70b, llama-2-13b
     job_number = sys.argv[1]
     # system message to prompt the model
@@ -131,7 +131,7 @@ if __name__ == "__main__":
                                     data_sample[0].formula, data_sample[0].is_sat,
                                     data_sample[0].preferences, data_sample[0].menu_items,
                                     gen_out, num_prompt_tokens, num_completion_tokens,
-                                    ablation=ablation)
+                                    ablation=ablation, job_num=job_number, two_sat_flag=two_sat_flag)
                 break
             except openai.error.RateLimitError or openai.error.APIError or \
                    openai.error.ServiceUnavailableError or openai.error.Timeout:
