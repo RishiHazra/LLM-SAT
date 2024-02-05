@@ -6,6 +6,7 @@ slurm*.err
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
+utils/__pycache__/
 __pycache__/
 *.py[cod]
 *$py.class
