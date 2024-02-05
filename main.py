@@ -5,7 +5,7 @@ import openai
 from typing import List, Tuple
 import system_messages
 from utils.dataset import SatDataset, custom_collate
-from utils.data_analysis import log_data_sample
+from utils.data_analysis import log_data_sample, sample_in_context
 from torch.utils.data import DataLoader
 from dotmap import DotMap
 from tqdm import tqdm
@@ -15,14 +15,14 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 os.environ["ROOT_PATH"] = os.getcwd()
 sys.path.append(os.environ["ROOT_PATH"])
 # os.environ["TRANSFORMERS_CACHE"] = 'checkpoint/'
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# openai.api_key = os.getenv("OPENAI_API_KEY")
 access_token = os.getenv("HF_ACCESS_TOKEN")
 
 
 # openai.organization = ""
 # print(openai.Model.list())
 
-def query_gpt(model_name: str, preferences: str) -> Tuple[str, int, int]:
+def query_gpt(model_name: str, preferences: str, in_context_examples: str) -> Tuple[str, int, int]:
     """
     :param model_name: gpt-4, gpt-3.5
     :param preferences: food preferences of people
@@ -37,9 +37,9 @@ def query_gpt(model_name: str, preferences: str) -> Tuple[str, int, int]:
     response = openai.ChatCompletion.create(
         model=gpt_model,  # gpt-4-1106-preview, gpt-3.5-turbo-1106
         messages=[
-            {"role": "system", "content": system_message
+            {"role": "system", "content": system_message + '\n' + in_context_examples
              },
-            {"role": "user", "content": f"{preferences}"},
+            {"role": "user", "content": f"Preferences: {preferences}\nSolution: "},
         ],
         temperature=1,
         max_tokens=4096,
@@ -67,17 +67,33 @@ def query_llama(batch_preferences: List[str]) -> Tuple[List[str], List[int], Lis
     generated_out = tokenizer.batch_decode(gen_output_ids, skip_special_tokens=True)
     return generated_out, num_prompt_tokens, num_completion_tokens
 
+def query_mixtral(batch_preferences: List[str]) -> Tuple[List[str], List[int], List[int]]:
+    prompt = [f"<s>[INST] \n{system_message}\n\n{preferences} [/INST]"
+              for preferences in batch_preferences]
+
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenized_prompts = tokenizer(prompt, padding=True, return_token_type_ids=False, return_tensors="pt").to(device)
+    # num_prompt_tokens = model_inputs.input_ids.shape[-1]
+    num_prompt_tokens = \
+        torch.sum(tokenized_prompts.attention_mask, dim=-1).cpu().numpy()  # attention ids = 1 and pad ids = 0
+    output_ids= model.generate(**tokenized_prompts, max_new_tokens=4000)
+    gen_output_ids = output_ids[:, tokenized_prompts.input_ids.shape[-1]:]
+    num_completion_tokens = output_ids.shape[-1] - num_prompt_tokens
+    generated_out = tokenizer.batch_decode(gen_output_ids, skip_special_tokens=True)
+    return generated_out, num_prompt_tokens, num_completion_tokens
+
 
 if __name__ == "__main__":
     ablation = 'menu'  # 'menu', 'sat', 'translate'
     two_sat_flag = False
-    model_name = 'gpt-4'  # gpt-4, gpt-3.5, llama-2-70b, llama-2-13b
+    few_shot = 0  # 0 for zero_shot
+    model_name = 'mixtral'  # gpt-4, gpt-3.5, llama-2-70b, llama-2-13b, mixtral
     job_number = sys.argv[1]
     # system message to prompt the model
     # different system messages for different ablations
     system_message = system_messages.names[ablation]
     append = '_2sat' if two_sat_flag else ''
-    data_path = os.path.join(os.environ["ROOT_PATH"], f'dataset{append}.pkl')
+    data_path = os.path.join(os.environ["ROOT_PATH"], f'dataset{append}_float_alpha.pkl')
     sat_dataset = SatDataset(root_path=os.environ["ROOT_PATH"], data_path=data_path)
 
     os.environ["TRANSFORMERS_CACHE"] = os.environ["VSC_SCRATCH"] + '/.cache'
@@ -98,8 +114,24 @@ if __name__ == "__main__":
                                                   use_fast=True,
                                                   use_auth_token=access_token
                                                   )
+    if 'mixtral' in model_name:
+        batch_size = 1
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16
+        )
+        model = AutoModelForCausalLM.from_pretrained(f"mistralai/Mixtral-8x7B-v0.1",
+                                                     device_map="auto",
+                                                     quantization_config=bnb_config,
+                                                     use_flash_attention_2=True)
+        tokenizer = AutoTokenizer.from_pretrained(f"mistralai/Mixtral-8x7B-v0.1",
+                                                  padding_side = "left")
     else:
         batch_size = 1
+        if few_shot > 0:
+            in_shot_examples = sample_in_context(few_shot, model_name, ablation)
     sat_loader = DataLoader(sat_dataset, batch_size=batch_size, shuffle=True, collate_fn=custom_collate)
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -108,11 +140,12 @@ if __name__ == "__main__":
         data_sample = [DotMap(sample) for sample in data_sample]
         while True:
             try:
-                if 'llama' in model_name:
+                if 'llama' in model_name or 'mixtral' in model_name:
+                    query_fn = query_llama if 'llama' in model_name else query_mixtral
                     data_input = [sample.preferences if ablation in ['menu', 'translate'] else sample.formula \
                                   for sample in data_sample]
                     gen_out_list, num_prompt_tokens_list, num_completion_tokens_list = \
-                        query_llama(data_input)
+                        query_fn(data_input)
                     for ind, (gen_out, num_prompt_tokens, num_completion_tokens) \
                             in enumerate(zip(gen_out_list, num_prompt_tokens_list, num_completion_tokens_list)):
                         # print(gen_out)
@@ -121,17 +154,19 @@ if __name__ == "__main__":
                                         data_sample[ind].formula, data_sample[ind].is_sat,
                                         data_sample[ind].preferences, data_sample[ind].menu_items,
                                         gen_out, num_prompt_tokens, num_completion_tokens,
-                                        ablation=ablation, job_num=job_number, two_sat_flag=two_sat_flag)
+                                        ablation=ablation, job_num=job_number,
+                                        few_shot=few_shot, two_sat_flag=two_sat_flag)
                 else:
                     # for GPT-*, the batch size = 1
                     data_input = data_sample[0].preferences if ablation in ['menu', 'translate'] \
                         else data_sample[0].formula
-                    gen_out, num_prompt_tokens, num_completion_tokens = query_gpt(model_name, data_input)
+                    gen_out, num_prompt_tokens, num_completion_tokens = query_gpt(model_name, data_input,
+                                                                                  in_shot_examples)
                     log_data_sample(model_name, data_sample[0].num_vars, data_sample[0].num_clauses,
                                     data_sample[0].formula, data_sample[0].is_sat,
                                     data_sample[0].preferences, data_sample[0].menu_items,
                                     gen_out, num_prompt_tokens, num_completion_tokens,
-                                    ablation=ablation, job_num=job_number, two_sat_flag=two_sat_flag)
+                                    ablation=ablation, job_num=job_number, few_shot=few_shot, two_sat_flag=two_sat_flag)
                 break
             except openai.error.RateLimitError or openai.error.APIError or \
                    openai.error.ServiceUnavailableError or openai.error.Timeout:
