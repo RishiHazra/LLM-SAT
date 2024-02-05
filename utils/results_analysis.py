@@ -136,9 +136,10 @@ def parse_generated_output_translate(raw_output: str, item_to_number: Dict[str, 
 if __name__ == "__main__":
     model_name = 'gpt-4'  # gpt-3.5, gpt-4, llama-2-70b, text-bison@002, gemini-pro
     ablation = ''  # '', 'sat', 'translate'
-    append = '_2sat'  # '', '_2sat'
+    append = ''  # '', '_2sat'
+    few_shot = '_3shot'  # '_3shot'
 
-    file_lines = open(f'../out_data/{model_name}{ablation}/data_log{append}.log', 'r').readlines()
+    file_lines = open(f'../out_data/{model_name}{ablation}/data_log{append}{few_shot}.log', 'r').readlines()
 
     map2title = {'gpt-4': 'GPT-4', 'gpt-3.5': 'GPT-3.5', 'llama-2-70b': 'Llama-2-70B',
                  'text-bison@002': 'PaLM 2 (text-bison)', 'gemini-pro': 'Gemini Pro',
@@ -151,8 +152,9 @@ if __name__ == "__main__":
     dataframe_dict = {'num_variables':[], 'num_clauses': [], 'alpha':[], 'is_sat':[],
                       'correct': [], 'num_prompt_tokens': [], 'num_completion_tokens': [],
                       'pred_is_sat': []}
-    if append != '_2sat':
+    if append != '_2sat' and ablation == 'menu' and few_shot == '':
         dataframe_dict['model_count'] = []
+        dataframe_dict['satisfiability_ratio'] = []
 
     for id, line in enumerate(file_lines):
         sample_dict = ast.literal_eval(line.split("Data Sample: ")[1])
@@ -165,8 +167,9 @@ if __name__ == "__main__":
         dataframe_dict['is_sat'].append(sample_dict['is_sat'])
         dataframe_dict['num_prompt_tokens'].append(sample_dict['num_prompt_tokens'])
         dataframe_dict['num_completion_tokens'].append(sample_dict['num_completion_tokens'])
-        if append != '_2sat':
+        if append != '_2sat' and ablation == 'menu' and few_shot == '':
             dataframe_dict['model_count'].append(sample_dict['model_count'])
+            dataframe_dict['satisfiability_ratio'].append(sample_dict['model_count']/2**sample_dict['num_vars'])
 
         alpha = sample_dict['num_clauses'] / sample_dict['num_vars']
         dataframe_dict['alpha'].append(alpha)
@@ -288,7 +291,7 @@ if __name__ == "__main__":
     plt.grid(True)
     plt.tight_layout()
     # plt.show()
-    plt.savefig(f'{plot_path}/all_alpha{append}.png')
+    plt.savefig(f'{plot_path}/all_alpha{append}{few_shot}.png')
 
     accuracy_df_simple = df.groupby('alpha')['correct'].mean().reset_index(name='accuracy')
     plt.figure(figsize=(10, 6))
@@ -302,15 +305,15 @@ if __name__ == "__main__":
     plt.grid(True)
     plt.tight_layout()
     # plt.show()
-    plt.savefig(f'{plot_path}/mean_alpha{append}.png')
+    plt.savefig(f'{plot_path}/mean_alpha{append}{few_shot}.png')
 
-    if append != '_2sat':
+    if append != '_2sat' and ablation == 'menu' and few_shot == '':
         model_count_df = df.groupby('model_count').filter(lambda x: len(x) >= 20)
-        model_count_df = model_count_df.groupby('model_count')['correct'].mean().reset_index(name='accuracy')
+        model_count_df = model_count_df.groupby('satisfiability_ratio')['correct'].mean().reset_index(name='accuracy')
         plt.figure(figsize=(10, 6))
-        plt.plot(model_count_df['model_count'], model_count_df['accuracy'], marker='o')
+        plt.plot(model_count_df['satisfiability_ratio'], model_count_df['accuracy'], marker='o')
         # plt.yticks(np.arange(0, 1.1, 0.1))
-        plt.xlabel('model count', fontsize=16)
+        plt.xlabel('satisfiability ratio', fontsize=16)
         plt.ylabel('accuracy', fontsize=16)
         plt.xticks(fontsize=13)
         plt.yticks(fontsize=13)
@@ -318,7 +321,7 @@ if __name__ == "__main__":
         plt.grid(True)
         plt.tight_layout()
         # plt.show()
-        plt.savefig(f'{plot_path}/model_count{append}.png')
+        plt.savefig(f'{plot_path}/model_count{append}{few_shot}.png')
 
     plt.figure(figsize=(10, 6))
     high_alpha_df = df[df['alpha'] >= 0][["pred_is_sat", "is_sat"]]
@@ -341,7 +344,7 @@ if __name__ == "__main__":
     plt.title(f'{model_name}', fontsize=18)
     plt.tight_layout()
     # plt.show()
-    plt.savefig(f'{plot_path}/cf{append}.png')
+    plt.savefig(f'{plot_path}/cf{append}{few_shot}.png')
 
     # _3d_df_simple = df.groupby('num_variables')['correct'].mean().reset_index(name='accuracy')
     # plt.figure(figsize=(10, 6))
@@ -365,7 +368,7 @@ if __name__ == "__main__":
     plt.grid(True)
     plt.tight_layout()
     # plt.show()
-    plt.savefig(f'{plot_path}/clauses{append}.png')
+    plt.savefig(f'{plot_path}/clauses{append}{few_shot}.png')
 
     # correlation between prompt_tokens and completion_tokens
     corr_data = df[['num_prompt_tokens', 'num_completion_tokens']]
@@ -386,7 +389,7 @@ if __name__ == "__main__":
     plt.grid(True)
     plt.tight_layout()
     # plt.show()
-    plt.savefig(f'{plot_path}/corr_tokens{append}.png')
+    plt.savefig(f'{plot_path}/corr_tokens{append}{few_shot}.png')
 
     # Plot distributions
     # plot_distribution(num_vars_list, 'Distribution of num_vars', 'num_vars', 'Frequency')
