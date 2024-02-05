@@ -30,3 +30,4 @@ dotmap
 tqdm
 pandas
 openai
+flash-attn

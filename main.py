@@ -93,10 +93,10 @@ if __name__ == "__main__":
     # different system messages for different ablations
     system_message = system_messages.names[ablation]
     append = '_2sat' if two_sat_flag else ''
-    data_path = os.path.join(os.environ["ROOT_PATH"], f'dataset{append}_float_alpha.pkl')
+    data_path = os.path.join(os.environ["ROOT_PATH"], f'dataset{append}.pkl')
     sat_dataset = SatDataset(root_path=os.environ["ROOT_PATH"], data_path=data_path)
 
-    # os.environ["TRANSFORMERS_CACHE"] = os.environ["VSC_SCRATCH"] + '/.cache'
+    os.environ["HF_HOME"] = os.environ["VSC_SCRATCH"] + '/.cache'
 
     if 'llama' in model_name:
         batch_size = 1
@@ -115,7 +115,7 @@ if __name__ == "__main__":
                                                   use_auth_token=access_token
                                                   )
     if 'mixtral' in model_name:
-        batch_size = 1
+        batch_size = 30
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_use_double_quant=True,
@@ -125,7 +125,7 @@ if __name__ == "__main__":
         model = AutoModelForCausalLM.from_pretrained(f"mistralai/Mixtral-8x7B-v0.1",
                                                      device_map="auto",
                                                      quantization_config=bnb_config,
-                                                     use_flash_attention_2=True)
+                                                     attn_implementation="flash_attention_2")
         tokenizer = AutoTokenizer.from_pretrained(f"mistralai/Mixtral-8x7B-v0.1",
                                                   padding_side = "left")
     else:
