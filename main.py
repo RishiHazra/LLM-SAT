@@ -16,7 +16,7 @@ os.environ["ROOT_PATH"] = os.getcwd()
 sys.path.append(os.environ["ROOT_PATH"])
 # os.environ["TRANSFORMERS_CACHE"] = 'checkpoint/'
 # openai.api_key = os.getenv("OPENAI_API_KEY")
-access_token = os.getenv("HF_ACCESS_TOKEN")
+# access_token = os.getenv("HF_ACCESS_TOKEN")
 
 
 # openai.organization = ""
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     data_path = os.path.join(os.environ["ROOT_PATH"], f'dataset{append}_float_alpha.pkl')
     sat_dataset = SatDataset(root_path=os.environ["ROOT_PATH"], data_path=data_path)
 
-    os.environ["TRANSFORMERS_CACHE"] = os.environ["VSC_SCRATCH"] + '/.cache'
+    # os.environ["TRANSFORMERS_CACHE"] = os.environ["VSC_SCRATCH"] + '/.cache'
 
     if 'llama' in model_name:
         batch_size = 1
