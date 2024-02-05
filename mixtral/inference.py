@@ -6,6 +6,8 @@ def query_llama(prompt):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     # print(os.environ["TRANSFORMERS_CACHE"])
     # os.environ["TRANSFORMERS_CACHE"] = "/data/LLM-SAT/mixtral/checkpoint/"
+    # os.environ["TRANSFORMERS_CACHE"] = os.environ["VSC_SCRATCH"] + '/.cache'
+    os.environ["HF_HOME"] = os.environ["VSC_SCRATCH"] + '/.cache'
     model_name = "mistralai/Mixtral-8x7B-v0.1"
 
     bnb_config = BitsAndBytesConfig(
@@ -18,7 +20,7 @@ def query_llama(prompt):
     model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", quantization_config=bnb_config)
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
 
-    # tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.pad_token = tokenizer.eos_token
     tokenized_prompts = tokenizer(prompt, padding=True, return_tensors="pt").to(device)
     num_prompt_tokens = torch.sum(tokenized_prompts.attention_mask, dim=-1).cpu().numpy()
     output_ids= model.generate(**tokenized_prompts, max_new_tokens=100)
