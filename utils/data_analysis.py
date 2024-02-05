@@ -2,6 +2,8 @@ import os
 import matplotlib.pyplot as plt
 from collections import Counter
 
+import numpy as np
+
 
 # Configure logging
 class DataLogger:
@@ -15,16 +17,20 @@ class DataLogger:
 
 # A function to log data from each data sample
 def log_data_sample(model_name, num_vars, num_clauses, formula, is_sat, preferences, menu_items,
-                    gpt_out, num_prompt_tokens, num_completion_tokens, ablation='', job_num=''):
+                    gpt_out, num_prompt_tokens, num_completion_tokens, ablation='', job_num='',
+                    few_shot=0, two_sat_flag=False):
     ablation = '' if ablation == 'menu' else ablation
     if ablation == 'sat':
         menu_items = ''
         preferences = ''
-    out_data_path = f'out_data_{model_name}{ablation}'
+    out_data_path = f'out_data/{model_name}{ablation}'
     if not os.path.exists(out_data_path):
         os.makedirs(out_data_path)
 
-    data_log_file_name = 'data_log.log'
+    append = '_2sat' if two_sat_flag else ''
+    append_few_shot = f'_{few_shot}shot' if few_shot !=0 else ''
+    # logger = DataLogger(os.path.join(out_data_path, f'data_log{append}.log'))
+    data_log_file_name = f'data_log{append}{append_few_shot}.log'
     if job_num != '':
         data_log_file_name = f'job{job_num}_{data_log_file_name}'
     logger = DataLogger(os.path.join(out_data_path, data_log_file_name))
@@ -41,6 +47,21 @@ def log_data_sample(model_name, num_vars, num_clauses, formula, is_sat, preferen
         'num_completion_tokens': num_completion_tokens
     }
     logger.log(f"Data Sample: {data_sample}")
+
+def sample_in_context(few_shot, model_name, ablation):
+    map2title = {'gpt-4': 'GPT-4', 'gpt-3.5': 'GPT-3.5', 'llama-2-70b': 'Llama-2-70B',
+                 'text-bison@002': 'PaLM 2 (text-bison)', 'gemini-pro': 'Gemini Pro',
+                 'llama-2-13b': 'Llama-2-13B'}
+    model_name = map2title[model_name]
+    in_context_dir = f'utils/in_context_examples/{model_name}/{ablation}/examples'
+    file_lines = open(in_context_dir).readlines()
+    all_examples = []  # file only stores correct examples
+    for i in range(0, len(file_lines), 3):
+        pair = '\n'.join([file_lines[i], file_lines[i+1]])
+        all_examples.append(pair)
+    np.random.shuffle(all_examples)
+    sampled_examples = all_examples[:few_shot]
+    return '\n'.join(sampled_examples)
 
 # A function to plot the distribution of numeric data
 def plot_distribution(data, title, xlabel, ylabel):
