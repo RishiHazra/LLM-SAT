@@ -2,7 +2,7 @@ import os
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-def query_llama(prompt):
+def query_mixtral(prompt):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     # print(os.environ["TRANSFORMERS_CACHE"])
     # os.environ["TRANSFORMERS_CACHE"] = "/data/LLM-SAT/mixtral/checkpoint/"
@@ -15,10 +15,13 @@ def query_llama(prompt):
         bnb_4bit_compute_dtype=torch.bfloat16
     )
     # attn_implementation="flash_attention_2"
-    model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", quantization_config=bnb_config)
-    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
+    model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto",
+                                                 quantization_config=bnb_config,
+                                                 use_flash_attention_2=True)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_flash_attention_2=True,
+                                                 padding_side="left")
 
-    # tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.pad_token = tokenizer.eos_token
     tokenized_prompts = tokenizer(prompt, padding=True, return_tensors="pt").to(device)
     num_prompt_tokens = torch.sum(tokenized_prompts.attention_mask, dim=-1).cpu().numpy()
     output_ids= model.generate(**tokenized_prompts, max_new_tokens=100)
@@ -29,6 +32,6 @@ def query_llama(prompt):
 
 if __name__ == "__main__":
     prompt = ["Tell me about gravity", "Say something about pizza"]
-    generated, num_prompt_tokens, num_completion_tokens = query_llama(prompt)
+    generated, num_prompt_tokens, num_completion_tokens = query_mixtral(prompt)
     print(generated)
     print(f'# prompt tokens: {num_prompt_tokens} | # completion tokens: {num_completion_tokens}')
