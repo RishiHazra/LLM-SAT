@@ -6,7 +6,7 @@ def query_mixtral(prompt):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     # print(os.environ["TRANSFORMERS_CACHE"])
     # os.environ["TRANSFORMERS_CACHE"] = "/data/LLM-SAT/mixtral/checkpoint/"
-    model_name = "mistralai/Mixtral-8x7B-v0.1"
+    model_name = "mistralai/Mixtral-8x7B-Instruct-v0.1"
 
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
@@ -17,9 +17,8 @@ def query_mixtral(prompt):
     # attn_implementation="flash_attention_2"
     model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto",
                                                  quantization_config=bnb_config,
-                                                 use_flash_attention_2=True)
-    tokenizer = AutoTokenizer.from_pretrained(model_name, use_flash_attention_2=True,
-                                                 padding_side="left")
+                                                 attn_implementation="flash_attention_2")
+    tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side="left")
 
     tokenizer.pad_token = tokenizer.eos_token
     tokenized_prompts = tokenizer(prompt, padding=True, return_tensors="pt").to(device)
@@ -31,7 +30,8 @@ def query_mixtral(prompt):
     return generated_out, num_prompt_tokens, num_completion_tokens
 
 if __name__ == "__main__":
-    prompt = ["Tell me about gravity", "Say something about pizza"]
+    system_message = 'You are a helpful assistant. Tell me about the following.'
+    prompt = [f"<s>[INST]\n{system_message}\n\nTell me about gravity [/INST]", f"<s>[INST] <<SYS>>\n{system_message}\n<</SYS>>\n\nSay something about pizza [/INST]"]
     generated, num_prompt_tokens, num_completion_tokens = query_mixtral(prompt)
     print(generated)
     print(f'# prompt tokens: {num_prompt_tokens} | # completion tokens: {num_completion_tokens}')
