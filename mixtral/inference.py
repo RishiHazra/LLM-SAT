@@ -20,8 +20,7 @@ def query_mixtral(prompt):
     model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto",
                                                  quantization_config=bnb_config,
                                                  attn_implementation="flash_attention_2")
-    tokenizer = AutoTokenizer.from_pretrained(model_name, attn_implementation="flash_attention_2",
-                                                 padding_side="left")
+    tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side="left")
 
     tokenizer.pad_token = tokenizer.eos_token
     tokenized_prompts = tokenizer(prompt, padding=True, return_tensors="pt").to(device)

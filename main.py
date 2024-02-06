@@ -122,11 +122,11 @@ if __name__ == "__main__":
             bnb_4bit_quant_type="nf4",
             bnb_4bit_compute_dtype=torch.bfloat16
         )
-        model = AutoModelForCausalLM.from_pretrained(f"mistralai/Mixtral-8x7B-v0.1",
+        model = AutoModelForCausalLM.from_pretrained(f"mistralai/Mixtral-8x7B-Instruct-v0.1",
                                                      device_map="auto",
                                                      quantization_config=bnb_config,
                                                      attn_implementation="flash_attention_2")
-        tokenizer = AutoTokenizer.from_pretrained(f"mistralai/Mixtral-8x7B-v0.1",
+        tokenizer = AutoTokenizer.from_pretrained(f"mistralai/Mixtral-8x7B-Instruct-v0.1",
                                                   padding_side = "left")
     else:
         batch_size = 1
