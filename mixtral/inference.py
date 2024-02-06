@@ -6,6 +6,8 @@ def query_mixtral(prompt):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     # print(os.environ["TRANSFORMERS_CACHE"])
     # os.environ["TRANSFORMERS_CACHE"] = "/data/LLM-SAT/mixtral/checkpoint/"
+    # os.environ["TRANSFORMERS_CACHE"] = os.environ["VSC_SCRATCH"] + '/.cache'
+    os.environ["HF_HOME"] = os.environ["VSC_SCRATCH"] + '/.cache'
     model_name = "mistralai/Mixtral-8x7B-Instruct-v0.1"
 
     bnb_config = BitsAndBytesConfig(
@@ -30,8 +32,7 @@ def query_mixtral(prompt):
     return generated_out, num_prompt_tokens, num_completion_tokens
 
 if __name__ == "__main__":
-    system_message = 'You are a helpful assistant. Tell me about the following.'
-    prompt = [f"<s>[INST]\n{system_message}\n\nTell me about gravity [/INST]", f"<s>[INST] <<SYS>>\n{system_message}\n<</SYS>>\n\nSay something about pizza [/INST]"]
+    prompt = ["Tell me about gravity", "Say something about pizza"]
     generated, num_prompt_tokens, num_completion_tokens = query_mixtral(prompt)
     print(generated)
     print(f'# prompt tokens: {num_prompt_tokens} | # completion tokens: {num_completion_tokens}')

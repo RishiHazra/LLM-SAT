@@ -15,9 +15,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 os.environ["ROOT_PATH"] = os.getcwd()
 sys.path.append(os.environ["ROOT_PATH"])
 # os.environ["TRANSFORMERS_CACHE"] = 'checkpoint/'
-# os.environ["TRANSFORMERS_CACHE"] = os.environ["VSC_SCRATCH"] + '/.cache'
-openai.api_key = os.getenv("OPENAI_API_KEY")
-access_token = os.getenv("HF_ACCESS_TOKEN")
+# openai.api_key = os.getenv("OPENAI_API_KEY")
+# access_token = os.getenv("HF_ACCESS_TOKEN")
 
 
 # openai.organization = ""
@@ -87,15 +86,17 @@ def query_mixtral(batch_preferences: List[str]) -> Tuple[List[str], List[int], L
 if __name__ == "__main__":
     ablation = 'menu'  # 'menu', 'sat', 'translate'
     two_sat_flag = False
-    few_shot = 3  # 0 for zero_shot
-    model_name = 'gpt-4'  # gpt-4, gpt-3.5, llama-2-70b, llama-2-13b, mixtral
-    job_number = ''  # sys.argv[1]
+    few_shot = 0  # 0 for zero_shot
+    model_name = 'mixtral'  # gpt-4, gpt-3.5, llama-2-70b, llama-2-13b, mixtral
+    job_number = sys.argv[1]
     # system message to prompt the model
     # different system messages for different ablations
     system_message = system_messages.names[ablation]
     append = '_2sat' if two_sat_flag else ''
-    data_path = os.path.join(os.environ["ROOT_PATH"], f'dataset{append}_float_alpha.pkl')
+    data_path = os.path.join(os.environ["ROOT_PATH"], f'dataset{append}.pkl')
     sat_dataset = SatDataset(root_path=os.environ["ROOT_PATH"], data_path=data_path)
+
+    os.environ["HF_HOME"] = os.environ["VSC_SCRATCH"] + '/.cache'
 
     if 'llama' in model_name:
         batch_size = 1
@@ -114,7 +115,7 @@ if __name__ == "__main__":
                                                   use_auth_token=access_token
                                                   )
     if 'mixtral' in model_name:
-        batch_size = 1
+        batch_size = 30
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_use_double_quant=True,
