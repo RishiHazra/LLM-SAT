@@ -8,7 +8,7 @@ def query_mixtral(prompt):
     # os.environ["TRANSFORMERS_CACHE"] = "/data/LLM-SAT/mixtral/checkpoint/"
     # os.environ["TRANSFORMERS_CACHE"] = os.environ["VSC_SCRATCH"] + '/.cache'
     os.environ["HF_HOME"] = os.environ["VSC_SCRATCH"] + '/.cache'
-    model_name = "mistralai/Mixtral-8x7B-v0.1"
+    model_name = "mistralai/Mixtral-8x7B-Instruct-v0.1"
 
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
@@ -19,8 +19,8 @@ def query_mixtral(prompt):
     # attn_implementation="flash_attention_2"
     model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto",
                                                  quantization_config=bnb_config,
-                                                 use_flash_attention_2=True)
-    tokenizer = AutoTokenizer.from_pretrained(model_name, use_flash_attention_2=True,
+                                                 attn_implementation="flash_attention_2")
+    tokenizer = AutoTokenizer.from_pretrained(model_name, attn_implementation="flash_attention_2",
                                                  padding_side="left")
 
     tokenizer.pad_token = tokenizer.eos_token
@@ -33,7 +33,8 @@ def query_mixtral(prompt):
     return generated_out, num_prompt_tokens, num_completion_tokens
 
 if __name__ == "__main__":
-    prompt = ["Tell me about gravity", "Say something about pizza"]
+    system_message = 'You are a helpful assistant. Tell me about the following.'
+    prompt = [f"<s>[INST]\n{system_message}\n\nTell me about gravity [/INST]", f"<s>[INST] <<SYS>>\n{system_message}\n<</SYS>>\n\nSay something about pizza [/INST]"]
     generated, num_prompt_tokens, num_completion_tokens = query_mixtral(prompt)
     print(generated)
     print(f'# prompt tokens: {num_prompt_tokens} | # completion tokens: {num_completion_tokens}')
