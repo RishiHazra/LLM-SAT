@@ -126,7 +126,7 @@ def parse_generated_output_translate(raw_output: str, item_to_number: Dict[str, 
                 parsed_clause.append(-item_to_number[item.lower()])
             else:
                 item = literal.lower()
-                # item = find_best_match(literal.lower(), sample_dict['menu_items'])
+                item = find_best_match(literal.lower(), sample_dict['menu_items'])
                 parsed_clause.append(item_to_number[item])
         parsed_clauses.append(parsed_clause)
 
@@ -134,10 +134,10 @@ def parse_generated_output_translate(raw_output: str, item_to_number: Dict[str, 
 
 
 if __name__ == "__main__":
-    model_name = 'gpt-4'  # gpt-3.5, gpt-4, llama-2-70b, text-bison@002, gemini-pro
+    model_name = 'llama-2-70b'  # gpt-3.5, gpt-4, llama-2-70b, text-bison@002, gemini-pro
     ablation = ''  # '', 'sat', 'translate'
     append = ''  # '', '_2sat'
-    few_shot = '_3shot'  # '_3shot'
+    few_shot = ''  # '', '_3shot'
 
     file_lines = open(f'../out_data/{model_name}{ablation}/data_log{append}{few_shot}.log', 'r').readlines()
 
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     dataframe_dict = {'num_variables':[], 'num_clauses': [], 'alpha':[], 'is_sat':[],
                       'correct': [], 'num_prompt_tokens': [], 'num_completion_tokens': [],
                       'pred_is_sat': []}
-    if append != '_2sat' and ablation == 'menu' and few_shot == '':
+    if append != '_2sat' and ablation == 'menu' and few_shot == '' and model_name == 'GPT-4':
         dataframe_dict['model_count'] = []
         dataframe_dict['satisfiability_ratio'] = []
 
@@ -167,7 +167,7 @@ if __name__ == "__main__":
         dataframe_dict['is_sat'].append(sample_dict['is_sat'])
         dataframe_dict['num_prompt_tokens'].append(sample_dict['num_prompt_tokens'])
         dataframe_dict['num_completion_tokens'].append(sample_dict['num_completion_tokens'])
-        if append != '_2sat' and ablation == 'menu' and few_shot == '':
+        if append != '_2sat' and ablation == 'menu' and few_shot == '' and model_name == 'GPT-4':
             dataframe_dict['model_count'].append(sample_dict['model_count'])
             dataframe_dict['satisfiability_ratio'].append(sample_dict['model_count']/2**sample_dict['num_vars'])
 
@@ -276,6 +276,7 @@ if __name__ == "__main__":
 
     # Plotting
     # plt.interactive(False)
+    few_shot_title = {'': '0-shot', '_3shot': '3-shot'}
     plt.figure(figsize=(10, 6))
     for num_vars in accuracy_df['num_variables'].unique():
         # if num_vars in [4,6,10]:
@@ -287,7 +288,7 @@ if __name__ == "__main__":
     plt.yticks(np.arange(0, 1.1, 0.1), fontsize=13)
     plt.xticks(fontsize=13)
     plt.legend()
-    plt.title(f'{model_name}', fontsize=18)
+    plt.title(f'{model_name} ({few_shot_title[few_shot]})', fontsize=18)
     plt.grid(True)
     plt.tight_layout()
     # plt.show()
@@ -301,13 +302,13 @@ if __name__ == "__main__":
     plt.ylabel('accuracy', fontsize=16)
     plt.xticks(fontsize=13)
     plt.yticks(fontsize=13)
-    plt.title(f'{model_name}', fontsize=18)
+    plt.title(f'{model_name} ({few_shot_title[few_shot]})', fontsize=18)
     plt.grid(True)
     plt.tight_layout()
     # plt.show()
     plt.savefig(f'{plot_path}/mean_alpha{append}{few_shot}.png')
 
-    if append != '_2sat' and ablation == 'menu' and few_shot == '':
+    if append != '_2sat' and ablation == 'menu' and few_shot == '' and model_name == 'GPT-4':
         model_count_df = df.groupby('model_count').filter(lambda x: len(x) >= 20)
         model_count_df = model_count_df.groupby('satisfiability_ratio')['correct'].mean().reset_index(name='accuracy')
         plt.figure(figsize=(10, 6))

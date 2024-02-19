@@ -30,11 +30,8 @@ class SatDataset(Dataset):
     def process(self, data_path:str):
         samples = []
         sat_data = pkl.load(open(data_path, 'rb'))
-        # gpt-4 (5101,2307), gpt-3.5 (4721,2817), llama-2 (),
-        # ablations: sat
-        # gpt-4 (3135,2558), gpt-3.5 (2912,2730), llama-2 ()
         for ind, num_vars, num_clauses, formula, is_sat, _ in sat_data:
-            # if num_vars != 4:
+            # if num_vars != 9:
             #     continue
             preferences, menu_items = self.sat_lang.map_2_lang(num_vars, formula, num_clauses)
             samples.append(vars(SatSample(num_vars, num_clauses, formula, is_sat, preferences, menu_items)))

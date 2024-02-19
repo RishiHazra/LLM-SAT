@@ -15,7 +15,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 os.environ["ROOT_PATH"] = os.getcwd()
 sys.path.append(os.environ["ROOT_PATH"])
 # os.environ["TRANSFORMERS_CACHE"] = 'checkpoint/'
-# openai.api_key = os.getenv("OPENAI_API_KEY")
+openai.api_key = os.getenv("OPENAI_API_KEY")
 # access_token = os.getenv("HF_ACCESS_TOKEN")
 
 
@@ -52,8 +52,8 @@ def query_gpt(model_name: str, preferences: str, in_context_examples: str) -> Tu
             response['usage']['prompt_tokens'],
             response['usage']['completion_tokens'])
 
-def query_llama(batch_preferences: List[str]) -> Tuple[List[str], List[int], List[int]]:
-    prompt = [f"<s>[INST] <<SYS>>\n{system_message}\n<</SYS>>\n\n{preferences} [/INST]"
+def query_llama(batch_preferences: List[str], in_context_examples: str) -> Tuple[List[str], List[int], List[int]]:
+    prompt = [f"<s>[INST] <<SYS>>\n{system_message}\n{in_context_examples}\n<</SYS>>\n\n{preferences} [/INST]"
               for preferences in batch_preferences]
 
     tokenizer.pad_token = tokenizer.eos_token
@@ -67,8 +67,8 @@ def query_llama(batch_preferences: List[str]) -> Tuple[List[str], List[int], Lis
     generated_out = tokenizer.batch_decode(gen_output_ids, skip_special_tokens=True)
     return generated_out, num_prompt_tokens, num_completion_tokens
 
-def query_mixtral(batch_preferences: List[str]) -> Tuple[List[str], List[int], List[int]]:
-    prompt = [f"<s>[INST] \n{system_message}\n\n{preferences} [/INST]"
+def query_mixtral(batch_preferences: List[str], in_context_examples: str) -> Tuple[List[str], List[int], List[int]]:
+    prompt = [f"<s>[INST] \n{system_message}\n{in_context_examples}\n\n{preferences} [/INST]"
               for preferences in batch_preferences]
 
     tokenizer.pad_token = tokenizer.eos_token
@@ -86,20 +86,20 @@ def query_mixtral(batch_preferences: List[str]) -> Tuple[List[str], List[int], L
 if __name__ == "__main__":
     ablation = 'menu'  # 'menu', 'sat', 'translate'
     two_sat_flag = False
-    few_shot = 0  # 0 for zero_shot
-    model_name = 'mixtral'  # gpt-4, gpt-3.5, llama-2-70b, llama-2-13b, mixtral
-    job_number = sys.argv[1]
+    few_shot = 3  # 0 for zero_shot
+    model_name = 'gpt-3.5'  # gpt-4, gpt-3.5, llama-2-70b, llama-2-13b, mixtral
+    job_number = ''  # sys.argv[1]
     # system message to prompt the model
     # different system messages for different ablations
     system_message = system_messages.names[ablation]
     append = '_2sat' if two_sat_flag else ''
-    data_path = os.path.join(os.environ["ROOT_PATH"], f'dataset{append}.pkl')
+    data_path = os.path.join(os.environ["ROOT_PATH"], f'dataset{append}_float_alpha.pkl')
     sat_dataset = SatDataset(root_path=os.environ["ROOT_PATH"], data_path=data_path)
 
-    os.environ["HF_HOME"] = os.environ["VSC_SCRATCH"] + '/.cache'
+    # os.environ["HF_HOME"] = os.environ["VSC_SCRATCH"] + '/.cache'
 
     if 'llama' in model_name:
-        batch_size = 1
+        batch_size = 20
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_use_double_quant=True,
@@ -130,8 +130,9 @@ if __name__ == "__main__":
                                                   padding_side = "left")
     else:
         batch_size = 1
-        if few_shot > 0:
-            in_shot_examples = sample_in_context(few_shot, model_name, ablation)
+
+    if few_shot > 0:
+        in_shot_examples = sample_in_context(few_shot, model_name, ablation)
     sat_loader = DataLoader(sat_dataset, batch_size=batch_size, shuffle=True, collate_fn=custom_collate)
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -145,7 +146,7 @@ if __name__ == "__main__":
                     data_input = [sample.preferences if ablation in ['menu', 'translate'] else sample.formula \
                                   for sample in data_sample]
                     gen_out_list, num_prompt_tokens_list, num_completion_tokens_list = \
-                        query_fn(data_input)
+                        query_fn(data_input, in_shot_examples)
                     for ind, (gen_out, num_prompt_tokens, num_completion_tokens) \
                             in enumerate(zip(gen_out_list, num_prompt_tokens_list, num_completion_tokens_list)):
                         # print(gen_out)
@@ -166,7 +167,8 @@ if __name__ == "__main__":
                                     data_sample[0].formula, data_sample[0].is_sat,
                                     data_sample[0].preferences, data_sample[0].menu_items,
                                     gen_out, num_prompt_tokens, num_completion_tokens,
-                                    ablation=ablation, job_num=job_number, few_shot=few_shot, two_sat_flag=two_sat_flag)
+                                    ablation=ablation, job_num=job_number,
+                                    few_shot=few_shot, two_sat_flag=two_sat_flag)
                 break
             except openai.error.RateLimitError or openai.error.APIError or \
                    openai.error.ServiceUnavailableError or openai.error.Timeout:
