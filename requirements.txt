@@ -2,8 +2,8 @@ absl-py
 hydra-core
 imageio
 imageio-ffmpeg
-matplotlib
-numpy
+matplotlib~=3.7.1
+numpy~=1.24.3
 meshcat
 opencv-python
 regex
@@ -28,6 +28,6 @@ accelerate
 bitsandbytes
 dotmap
 tqdm
-pandas
+pandas~=2.0.2
 openai
 flash-attn
