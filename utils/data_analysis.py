@@ -1,8 +1,11 @@
 import os
 import matplotlib.pyplot as plt
 from collections import Counter
-
+from matplotlib.patches import Patch
 import numpy as np
+import pickle as pkl
+import seaborn as sns
+import pandas as pd
 
 
 # Configure logging
@@ -106,3 +109,92 @@ def plot_dicts(my_dict, x_label, y_label, title):
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.show()
+
+def plot_dataset_analysis():
+    def load_and_process(data_path, df_dict):
+        sat_data = pkl.load(open(data_path, 'rb'))
+        for ind, num_vars, num_clauses, formula, is_sat, _ in sat_data:
+            df_dict['num_variables'].append(num_vars)
+            df_dict['num_clauses'].append(num_clauses)
+            df_dict['is_sat'].append(is_sat)
+            alpha = num_clauses / num_vars
+            dataframe_dict['alpha'].append(alpha)
+        return df_dict
+
+    dataframe_dict = {'num_variables': [], 'num_clauses': [], 'alpha': [], 'is_sat': []}
+    data_path = '../dataset.pkl'
+    dataframe_dict = load_and_process(data_path, dataframe_dict)
+    data_path = '../dataset_float_alpha.pkl'
+    dataframe_dict = load_and_process(data_path, dataframe_dict)
+    dataframe = pd.DataFrame(dataframe_dict)
+    # figure = plt.figure(figsize=(10,8))
+    # Grouping by num_variables and is_sat to get count
+    grouped = dataframe.groupby(['num_variables', 'is_sat']).size().unstack(fill_value=0)
+
+    # Preparing data for the pie chart
+    sizes = grouped.sum(axis=1).values
+    inner_labels = grouped.index.values
+    outer_sizes = grouped.values.flatten()
+    outer_labels = ['unSAT', 'SAT'] * len(grouped)
+
+    # Nice color palette for the inner pie
+    # inner_colors = plt.cm.Set2.colors[:len(inner_labels)]
+    # Deciding to make the wedge corresponding to '3' variables pop out as an example
+    inner_explode = [0.2 if label == 4 else 0 for label in inner_labels]
+    # For every 'True' in inner_explode, we need two values in outer_explode (one for SAT and one for UNSAT)
+    outer_explode = []
+    for e in inner_explode:
+        outer_explode.extend([e, e])  # Repeat the explode value for both SAT and UNSAT segments
+
+    # Define colors for SAT (True) and UNSAT (False)
+    # inner_colors = plt.cm.Set1.colors[:len(inner_labels)]  # ['lightgray', 'k']
+    inner_colors = plt.cm.Set2.colors[:len(inner_labels)]
+    colors = plt.cm.Set3.colors[:2]  #  sns.color_palette("Set2", 2)  # plt.cm.Pastel1.colors[:len(outer_labels)]
+    # Manually specifying colors for each segment of the outer pie to ensure consistency
+    outer_colors = [colors[i % 2] for i in range(len(outer_labels))]
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(12,12))
+
+    outer_wedges, _ = ax.pie(outer_sizes, radius=1.3, labeldistance=0.8, explode=outer_explode,
+                             wedgeprops=dict(width=0.4, edgecolor='w'), colors=outer_colors)
+    inner_pie, _ = ax.pie(sizes, radius=1, colors=inner_colors, explode=inner_explode,
+                          wedgeprops=dict(width=0.6, edgecolor='w'))
+    outer_legend_elements = [Patch(facecolor=outer_colors[1], edgecolor='w', label='SAT'),
+                             Patch(facecolor=outer_colors[0], edgecolor='w', label='unSAT')]
+
+    # Creating legends for both pies
+    # inner_legend = ax.legend(inner_pie, inner_labels, title="# Variables",
+    #                          bbox_to_anchor=(-0.3, -0.1, 0.5, 1), fontsize=16, title_fontsize=18)
+    # outer_legend = ax.legend(handles=outer_legend_elements, title="Satisfiability", loc="center left",
+    #                          bbox_to_anchor=(-0.3, 0.5, 0.5, 1), fontsize=16, title_fontsize=18)
+    # Adding legends back to the plot (to display both legends simultaneously)
+    # ax.add_artist(inner_legend)
+    plt.savefig('plots/dataset_pie.png')
+
+    df_sample = dataframe
+    df_sample['is_sat'] = df_sample['is_sat'].map({False: 'unSAT', True: 'SAT'})
+    colors = {"SAT": outer_colors[1], "unSAT": outer_colors[0]}
+    # Boxplot of num_clauses by is_sat
+    plt.figure(figsize=(8, 6))
+    sns.boxplot(x='is_sat', y='num_clauses', data=df_sample, palette=colors)
+    plt.xlabel('')  # Remove the x-axis label
+    plt.ylabel('# clauses', fontsize=18)
+    plt.xticks(fontsize=18)
+    plt.yticks(fontsize=18)
+    plt.title('Distribution of clauses', fontsize=20)
+    plt.tight_layout()
+    plt.savefig('plots/dataset_boxplot.png')
+    # plt.show()
+
+    # Violin Plot of alpha by is_sat
+    plt.figure(figsize=(8, 6))
+    sns.violinplot(x='is_sat', y='alpha', data=df_sample, palette=colors)
+    plt.xlabel('')  # Remove the x-axis label
+    plt.ylabel('alpha', fontsize=18)
+    plt.xticks(fontsize=18)
+    plt.yticks(fontsize=18)
+    plt.title('Distribution of alpha', fontsize=20)
+    plt.tight_layout()
+    plt.savefig('plots/dataset_violinplot.png')
+    # plt.show()

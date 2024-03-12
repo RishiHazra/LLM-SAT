@@ -1,0 +1,131 @@
+import os
+
+import matplotlib.pyplot as plt
+import pandas as pd
+
+
+def plot_phase_transition(dir, extension='.pdf', extra_dir=None):
+    df_file = os.path.join(dir, 'sat_solved.csv')
+    df = pd.read_csv(df_file)
+
+    # if extra_dir is not None merge the two dataframes
+    if extra_dir is not None:
+        df_extra_file = os.path.join(extra_dir, 'sat_solved.csv')
+        df_extra = pd.read_csv(df_extra_file)
+        df = pd.concat([df, df_extra], ignore_index=True)
+
+    df['is_sat'] = df['is_sat'].astype(int)
+
+    df = df.groupby(['n', 'alpha'])['is_sat'].sum().reset_index()
+
+    df['is_sat'] = df['is_sat'] / df['is_sat'].max()
+
+    fig, ax = plt.subplots()
+
+    for key, grp in df.groupby(['n']):
+        ax = grp.plot(ax=ax, kind='line', x='alpha', y='is_sat', label=key[0])
+
+    plt.legend(loc='best')
+    plot_path = os.path.join(dir, f"phase_transition{extension}")
+    plt.savefig(plot_path)
+    # plt.show()
+
+
+# define a function that plots the time taken to solve a problem
+def plot_time(dir, extension='.pdf', extra_dir=None):
+    df_file = os.path.join(dir, 'sat_solved.csv')
+    df = pd.read_csv(df_file)
+
+    # if extra_dir is not None merge the two dataframes
+    if extra_dir is not None:
+        df_extra_file = os.path.join(extra_dir, 'sat_solved.csv')
+        df_extra = pd.read_csv(df_extra_file)
+        df = pd.concat([df, df_extra], ignore_index=True)
+
+    df['time'] = df['time'].astype(float)
+
+    # take the average time
+    df = df.groupby(['n', 'alpha'])['time'].mean().reset_index()
+
+    # compue the standard deviation
+    df['std'] = df.groupby(['n'])['time'].transform('std')
+
+    fig, ax = plt.subplots(figsize=(10, 8))
+
+    for key, grp in df.groupby(['n']):
+        ax = grp.plot(ax=ax, kind='line', x='alpha', y='time', label=key[0])
+        # plot also the std
+        ax.fill_between(grp['alpha'], grp['time'] - grp['std'], grp['time'] + grp['std'], alpha=0.2)
+
+    plt.legend(loc='best')
+    plot_path = os.path.join(dir, f"times{extension}")
+    plt.savefig(plot_path)
+    # plt.show()
+
+
+# define a function that plots the time taken to solve a problem for a given alpha without distinguishing n
+def plot_time_alpha(dir, extension='.pdf', extra_dir=None):
+    df_file = os.path.join(dir, 'sat_solved.csv')
+    df = pd.read_csv(df_file)
+
+    # if extra_dir is not None merge the two dataframes
+    if extra_dir is not None:
+        df_extra_file = os.path.join(extra_dir, 'sat_solved.csv')
+        df_extra = pd.read_csv(df_extra_file)
+        df = pd.concat([df, df_extra], ignore_index=True)
+
+    df['time'] = df['time'].astype(float)
+
+    # take the average time
+    df1 = df.groupby('alpha')['time'].mean().reset_index()
+
+    # compute the standard deviation
+    df1['std'] = df.groupby('alpha')['time'].std().tolist()
+    print(df1['std'])
+    fig, ax = plt.subplots(figsize=(10, 8))
+
+    ax = df1.plot(ax=ax, kind='line', x='alpha', y='time', label='time')
+    # plot also the std
+    ax.fill_between(df1['alpha'],
+                    df1['time'] - df1['std'],
+                    df1['time'] + df1['std'],
+                    alpha=0.2)
+
+    # remove legend
+    ax.get_legend().remove()
+    plt.xlabel('alpha', fontsize=16)
+    plt.ylabel('time', fontsize=16)
+    plt.xticks(fontsize=13)
+    plt.yticks(fontsize=13)
+    plt.tight_layout()
+    # plt.title('Time taken by Solver', fontsize=18)
+    plot_path = os.path.join(dir, f"times_alpha{extension}")
+    plt.savefig(plot_path)
+    # plt.show()
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    task_parsers = parser.add_subparsers(dest='task', help='Plotting procedures')
+    phase_transition_parser = task_parsers.add_parser('phase_transition')
+    time_parser = task_parsers.add_parser('time')
+
+    phase_transition_parser.add_argument('sat_res_dir', type=str, help="Log directory")
+
+    time_parser.add_argument('sat_res_dir', type=str, help="Log directory")
+
+    parser.add_argument('--extension', type=str, help="File extension", default='.png')
+    parser.add_argument('--extra_dir', type=str, help="Extra log directory", default=None)
+
+    args = parser.parse_args()
+
+    if args.task == 'phase_transition':
+        plot_phase_transition(args.sat_res_dir, extension=args.extension, extra_dir=args.extra_dir)
+    elif args.task == 'time':
+        plot_time(args.sat_res_dir, extension=args.extension, extra_dir=args.extra_dir)
+        plot_time_alpha(args.sat_res_dir, extension=args.extension, extra_dir=args.extra_dir)
+    else:
+        raise NotImplementedError("Unsupported plotting task")
