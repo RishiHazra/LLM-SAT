@@ -31,3 +31,4 @@ tqdm
 pandas~=2.0.2
 openai
 flash-attn
+seaborn
