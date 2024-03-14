@@ -16,9 +16,9 @@ class DataLogger:
 
     def log(self, data_sample):
         with open(self.log_file, 'a', encoding='utf-8') as file:
-            fcntl.flock(f, fcntl.LOCK_EX)
+            fcntl.flock(file, fcntl.LOCK_EX)
             file.write(str(data_sample) + '\n')
-            fcntl.flock(f, fcntl.LOCK_UN)
+            fcntl.flock(file, fcntl.LOCK_UN)
 
 
 # A function to log data from each data sample
