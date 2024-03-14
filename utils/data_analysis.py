@@ -6,6 +6,7 @@ import numpy as np
 import pickle as pkl
 import seaborn as sns
 import pandas as pd
+import fcntl
 
 
 # Configure logging
@@ -15,7 +16,9 @@ class DataLogger:
 
     def log(self, data_sample):
         with open(self.log_file, 'a', encoding='utf-8') as file:
+            fcntl.flock(f, fcntl.LOCK_EX)
             file.write(str(data_sample) + '\n')
+            fcntl.flock(f, fcntl.LOCK_UN)
 
 
 # A function to log data from each data sample
