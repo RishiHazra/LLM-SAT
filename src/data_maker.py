@@ -91,7 +91,7 @@ class DataMakerCNFk(DataMaker):
     log_path: str = os.path.join(data_dir, 'log.txt')
     logfile = open(log_path, 'w')
 
-    tot_formulas: int = np.floor(((alpha_max - alpha_min + 1) / alpha_inc)) * N * len(ns)
+    tot_formulas: int = np.floor(((alpha_max - alpha_min) / alpha_inc) + 1) * N * len(ns)
     formulas: List[Tuple[int, str, int, int, List[List[int]]]] = []
     formulas_idx: int = 1
 
@@ -329,4 +329,4 @@ if __name__ == "__main__":
     # print("Writing %d formulas to %s..." % (len(formulas), pickle_path))
     # with open(pickle_path, 'wb') as f_dump:
     #   pickle.dump(formulas, f_dump)
-    pickle_dump_in_chunks(formulas, args.data_dir, 500)
+    pickle_dump_in_chunks(formulas, args.data_dir)
