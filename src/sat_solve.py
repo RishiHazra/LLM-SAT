@@ -5,6 +5,7 @@ from time import time
 from typing import List
 
 from data_loader import data_loader
+from data_loader import data_loader_from_chunks
 
 if __name__ == '__main__':
 
@@ -15,7 +16,7 @@ if __name__ == '__main__':
 
   args = parser.parse_args()
 
-  dataset = data_loader(os.path.join(args.dataset_folder, 'dataset.pkl'))
+  dataset = data_loader_from_chunks(args.dataset_folder)
   n_formulas = len(dataset)
   solved = dict()
   solved['id'] = []

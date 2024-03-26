@@ -28,6 +28,29 @@ def is_sat(n: int, formula: List[List[int]]) -> bool:
   return solver.solve()
 
 
+def pickle_dump_in_chunks(data, path, chunk_size=10_000):
+  formulas_chunks = [data[i:i+chunk_size] for i in range(0, len(data), chunk_size)]
+
+  for i, chunk in enumerate(formulas_chunks):
+    chunk_path = os.path.join(path, f'dataset_part_{i}.pkl')
+    print(f"Writing {len(chunk)} formulas to {chunk_path}...")
+    with open(chunk_path, 'wb') as f_dump:
+        pickle.dump(chunk, f_dump)
+
+def pickle_load_from_chunks(datadir_path):
+  chunks = []
+  i = 0
+  while True:
+      chunk_path = os.path.join(datadir_path, f'dataset_part_{i}.pkl')
+      if not os.path.exists(chunk_path):
+        break
+      print(f"Importing {i}th dataset part from {chunk_path}...")
+      with open(chunk_path, 'rb') as f:
+        chunk = pickle.load(f)
+        chunks.extend(chunk)
+      i += 1
+  return chunks
+
 class DataMaker:
   def __init__(self, seed):
     self._seed = seed
@@ -303,6 +326,7 @@ if __name__ == "__main__":
   pickle_path = os.path.join(args.data_dir, 'dataset.pkl')
 
   if args.task != 'merge_cnf' and args.task != 'remove_int_alpha_cnf':
-    print("Writing %d formulas to %s..." % (len(formulas), pickle_path))
-    with open(pickle_path, 'wb') as f_dump:
-      pickle.dump(formulas, f_dump)
+    # print("Writing %d formulas to %s..." % (len(formulas), pickle_path))
+    # with open(pickle_path, 'wb') as f_dump:
+    #   pickle.dump(formulas, f_dump)
+    pickle_dump_in_chunks(formulas, args.data_dir, 500)
