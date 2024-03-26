@@ -68,7 +68,7 @@ class DataMakerCNFk(DataMaker):
     log_path: str = os.path.join(data_dir, 'log.txt')
     logfile = open(log_path, 'w')
 
-    tot_formulas: int = np.floor(((alpha_max - alpha_min) / alpha_inc)) * N * len(ns)
+    tot_formulas: int = np.floor(((alpha_max - alpha_min + 1) / alpha_inc)) * N * len(ns)
     formulas: List[Tuple[int, str, int, int, List[List[int]]]] = []
     formulas_idx: int = 1
 
