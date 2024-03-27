@@ -54,7 +54,7 @@ def log_data_sample(model_name, num_vars, num_clauses, formula, is_sat, preferen
 def sample_in_context(few_shot, model_name, ablation):
     map2title = {'gpt-4': 'GPT-4', 'gpt-3.5': 'GPT-3.5', 'llama-2-70b': 'Llama-2-70B',
                  'text-bison@002': 'PaLM 2 (text-bison)', 'gemini-pro': 'Gemini Pro',
-                 'llama-2-13b': 'Llama-2-13B'}
+                 'llama-2-13b': 'Llama-2-13B', 'mixtral': 'Mixtral'}
     model_name = map2title[model_name]
     in_context_dir = f'utils/in_context_examples/{model_name}/{ablation}/examples'
     file_lines = open(in_context_dir).readlines()

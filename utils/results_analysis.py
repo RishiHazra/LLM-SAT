@@ -1,7 +1,7 @@
 import ast
 import os.path
 import re
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 
 import Levenshtein as lev
 import matplotlib.pyplot as plt
@@ -31,17 +31,25 @@ def find_best_match(target, string_list):
     return best_match
 
 
-def parse_generated_output_sat(raw_output: str) -> List:
+def parse_generated_output_sat(raw_output: str) -> Optional[List]:
     # Regex pattern to match the specific format with numbers and boolean values
-    pattern = r"\n<output:\s*{\s*(?:(-?\d+): (True|False),?\s*)*}>"
+
+    pattern = r"<output:\s*\{\s*(?:'?\-?\d+'?:\s*(True|False),?\s*)*\}>"
+
+    # pattern1 = r"<output:\s*{\s*(?:(-?\d+): (True|False),?\s*)*}>"
+    # pattern2 = r"<output:\s*\{\s*(?:(?:'?\d+'?|\"?\d+\"?):\s*(True|False),?\s*)+\}>"
 
     # Search for the pattern in the string
     match = re.search(pattern, raw_output)
+    # if match is None:
+    #     match = re.search(pattern2, raw_output)
 
     # If a match is found, process it
     if match:
         # Find all key-value pairs in the matched string
         kv_pairs = re.findall(r"(-?\d+): (True|False)", match.group(0))
+        if len(kv_pairs) == 0:
+            kv_pairs = [(k.strip("''"), v) for k,v in re.findall(r"('?\d+'?): (True|False)", match.group(0))]
 
         # Process each key-value pair
         result_list = []
@@ -58,16 +66,22 @@ def parse_generated_output_sat(raw_output: str) -> List:
 
         return result_list
     # If no match is found, return an empty dictionary
-    return []
+    return None
 
 
-def parse_generated_output(raw_output: str) -> Tuple[List[str], List[str]]:
+def parse_generated_output(raw_output: str) -> Tuple[Optional[List[str]], Optional[List[str]]]:
     # Regular expression to find the lists
     pattern1 = r"```python\s+orderable\s*=\s*(\[[^\]]*\])\s*(,|\n)\s*not_orderable\s*=\s*(\[[^\]]*\])\s*```"
     match1 = re.search(pattern1, raw_output)
 
     pattern2 = r"orderable\s*=\s*(\[[^\]]*\])\s*(,|\n)\s*not_orderable\s*=\s*(\[[^\]]*\])\s*"
     match2 = re.search(pattern2, raw_output)
+
+    pattern3 = r"(?i)(orderable\s*[:=]\s*(\[[^\]]*\]|\S+(?:,\s*\S+)*))\s*(?:,|\n)?\s*(not[_ ]orderable)\s*[:=]\s*(\[[^\]]*\]|\S+(?:,\s*\S+)*)"
+    match3 = [match for match in re.finditer(pattern3, raw_output, re.DOTALL)]
+
+    pattern4 = r"(?i)(orderable\s*[:=]\s*(\[[^\]]*\]|\S+(?:,\s*\S+)*))|((not[_ ]orderable)\s*[:=]\s*(\[[^\]]*\]|\S+(?:,\s*\S+)*))"
+    match4 = [match for match in re.finditer(pattern4, raw_output, re.DOTALL)]
 
     # Extracting the lists if found
     if match1:
@@ -96,9 +110,21 @@ def parse_generated_output(raw_output: str) -> Tuple[List[str], List[str]]:
             not_orderable_list = []
         else:
             not_orderable_list = not_orderable_list.strip('[]').split(',')
-    # TODO: also check for cases where GPT-4 gave up
+    elif match3:
+        match = match3[-1]
+        orderable_str = match.group(2).strip('[]')
+        not_orderable_str = match.group(4).strip('[]')
+        orderable_list = [item.strip(" '\"") for item in orderable_str.split(',')]
+        not_orderable_list = [item.strip(" '\"") for item in not_orderable_str.split(',')]
+    elif match4:
+        match = match4[-1]
+        orderable_str = match.group(2).strip('[]')
+        not_orderable_str = match.group(4).strip('[]')
+        orderable_list = [item.strip(" '\"") for item in orderable_str.split(',')]
+        not_orderable_list = [item.strip(" '\"") for item in not_orderable_str.split(',')]
     else:
-        orderable_list = not_orderable_list = []
+        orderable_list = not_orderable_list = None
+        return orderable_list, not_orderable_list
 
     # postprocess
     orderable_list = [item.strip().strip("''").strip('""').lower() for item in orderable_list]
@@ -107,7 +133,8 @@ def parse_generated_output(raw_output: str) -> Tuple[List[str], List[str]]:
 
 
 # Further refined function to correctly parse the CNF formula from LaTeX format
-def parse_generated_output_translate(raw_output: str, item_to_number: Dict[str, int]) -> List[List]:
+def parse_generated_output_translate(raw_output: str, item_to_number: Dict[str, int],
+                                     menu_items: List) -> List[List]:
     # Extract the clauses from the LaTeX formatted string
     # Remove all LaTeX formatting and split by 'and' (\\land)
     raw_output = raw_output.replace('lnot', 'neg').replace('wedge', 'land').replace('vee', 'lor').replace('\\text{',
@@ -131,7 +158,7 @@ def parse_generated_output_translate(raw_output: str, item_to_number: Dict[str, 
                 parsed_clause.append(-item_to_number[item.lower()])
             else:
                 item = literal.lower()
-                item = find_best_match(literal.lower(), sample_dict['menu_items'])
+                item = find_best_match(literal.lower(), menu_items)
                 parsed_clause.append(item_to_number[item])
         parsed_clauses.append(parsed_clause)
 
@@ -140,12 +167,12 @@ def parse_generated_output_translate(raw_output: str, item_to_number: Dict[str, 
 
 if __name__ == "__main__":
     # plot_dataset_analysis()
-    model_name = 'mixtral'  # gpt-3.5, gpt-4, llama-2-70b, text-bison@002, gemini-pro, mixtral
+    model_name = 'gpt-4'  # gpt-3.5, gpt-4, llama-2-70b, text-bison@002, gemini-pro, mixtral
     ablation = ''  # '', 'sat', 'translate'
     append = ''  # '', '_2sat'
     few_shot = ''  # '', '_3shot'
 
-    file_lines = open(f'../out_data/{model_name}{ablation}/data_log{append}{few_shot}.log', 'r').readlines()
+    file_lines = open(f'../out_data/{model_name}{ablation}/data_log{append}{few_shot}_mc.log', 'r').readlines()
 
     map2title = {'gpt-4': 'GPT-4', 'gpt-3.5': 'GPT-3.5', 'llama-2-70b': 'Llama-2-70B',
                  'text-bison@002': 'PaLM 2 (text-bison)', 'gemini-pro': 'Gemini Pro',
@@ -158,11 +185,16 @@ if __name__ == "__main__":
     dataframe_dict = {'num_variables': [], 'num_clauses': [], 'alpha': [], 'is_sat': [],
                       'correct': [], 'num_prompt_tokens': [], 'num_completion_tokens': [],
                       'pred_is_sat': []}
-    if append != '_2sat' and ablation == 'menu' and few_shot == '' and model_name not in ['Llama-2-13B', 'Mixtral']:
+    if append != '_2sat' and ablation == 'menu' and few_shot == '' and model_name not in ['Llama-2-13B']:
         dataframe_dict['model_count'] = []
         dataframe_dict['satisfiability_ratio'] = []
 
     for id, line in enumerate(file_lines):
+        print(id)
+        #llama2-70b-menu-3shot: [1153, 1336, 2882, 3031, 3301]
+        #mixtral-menu: [3024]
+        # if id in [3024]:
+        #     continue
         sample_dict = ast.literal_eval(line.split("Data Sample: ")[1])
 
         # if not sample_dict['is_sat']:   # skip all unsat samples / plot only sat samples
@@ -173,7 +205,7 @@ if __name__ == "__main__":
         dataframe_dict['is_sat'].append(sample_dict['is_sat'])
         dataframe_dict['num_prompt_tokens'].append(sample_dict['num_prompt_tokens'])
         dataframe_dict['num_completion_tokens'].append(sample_dict['num_completion_tokens'])
-        if append != '_2sat' and ablation == 'menu' and few_shot == '' and model_name not in ['Llama-2-13B', 'Mixtral']:
+        if append != '_2sat' and ablation == 'menu' and few_shot == '' and model_name not in ['Llama-2-13B']:
             dataframe_dict['model_count'].append(sample_dict['model_count'])
             dataframe_dict['satisfiability_ratio'].append(sample_dict['model_count'] / 2 ** sample_dict['num_vars'])
 
@@ -185,18 +217,22 @@ if __name__ == "__main__":
                 orderable, not_orderable = \
                     parse_generated_output(raw_output=sample_dict['gpt_out'])
             except AttributeError:
-                orderable, not_orderable = [], []
+                orderable, not_orderable = None, None
 
             if not sample_dict['is_sat']:  # if unsat
-                if len(orderable) == 0 and len(not_orderable) == 0 \
-                        :  # gpt predicts unsat
+                if orderable is None and not_orderable is None:  # inconclusive output/solution
+                    dataframe_dict['correct'].append(False)
+                    dataframe_dict['pred_is_sat'].append(np.nan)
+                elif len(orderable) == 0 and len(not_orderable) == 0 :  # gpt predicts unsat
                     dataframe_dict['correct'].append(True)
                     dataframe_dict['pred_is_sat'].append(False)  # pred unsat
                 else:
                     dataframe_dict['correct'].append(False)
                     dataframe_dict['pred_is_sat'].append(True)  # pred sat
             else:  # if sat, verify solution
-                if len(orderable) == 0 and len(not_orderable) == 0:  # gpt predicts unsat
+                if orderable is None and not_orderable is None:  # inconclusive output/solution
+                    dataframe_dict['correct'].append(False)
+                elif len(orderable) == 0 and len(not_orderable) == 0:  # gpt predicts unsat
                     dataframe_dict['correct'].append(False)
                 else:
                     assignment = []
@@ -215,7 +251,9 @@ if __name__ == "__main__":
                     else:
                         dataframe_dict['correct'].append(False)
                 # check if sat is predicted as sat or unsat
-                if len(orderable) == 0 and len(not_orderable) == 0:
+                if orderable is None and not_orderable is None:  # inconclusive output/solution
+                    dataframe_dict['pred_is_sat'].append(np.nan)
+                elif len(orderable) == 0 and len(not_orderable) == 0:
                     dataframe_dict['pred_is_sat'].append(False)  # pred unsat
                 else:
                     dataframe_dict['pred_is_sat'].append(True)  # pred unsat
@@ -224,28 +262,36 @@ if __name__ == "__main__":
             assignment = parse_generated_output_sat(raw_output=sample_dict['gpt_out'])
             # only use those variables in the assignment which are part of the formula
             # sometimes the LLM creates and assigns values to new variables
-            assignment = list(set(assignment).intersection(np.arange(1, sample_dict['num_vars'] + 1, 1)))
+            if assignment:
+                assignment = list(set(assignment).intersection(np.arange(1, sample_dict['num_vars'] + 1, 1)))
             if not sample_dict['is_sat']:  # if unsat
-                if len(assignment) == 0:
+                if assignment is None:
+                    dataframe_dict['correct'].append(False)
+                    dataframe_dict['pred_is_sat'].append(np.nan)
+                elif len(assignment) == 0:
                     dataframe_dict['correct'].append(True)
                     dataframe_dict['pred_is_sat'].append(False)  # pred unsat
                 else:
                     dataframe_dict['correct'].append(False)
                     dataframe_dict['pred_is_sat'].append(True)  # pred sat
             else:  # if sat, verify solution
-                verified = \
-                    verify_solution(num_vars=sample_dict['num_vars'],
-                                    formula=sample_dict['formula'],
-                                    assignment=assignment) and len(assignment) > 0
-                if verified:
-                    dataframe_dict['correct'].append(True)
-                else:
+                if assignment is None:
                     dataframe_dict['correct'].append(False)
-                # check if sat is predicted as sat or unsat
-                if len(assignment) > 0:
-                    dataframe_dict['pred_is_sat'].append(True)  # pred sat
+                    dataframe_dict['pred_is_sat'].append(np.nan)
                 else:
-                    dataframe_dict['pred_is_sat'].append(False)  # pred unsat
+                    verified = \
+                        verify_solution(num_vars=sample_dict['num_vars'],
+                                        formula=sample_dict['formula'],
+                                        assignment=assignment) and len(assignment) > 0
+                    if verified:
+                        dataframe_dict['correct'].append(True)
+                    else:
+                        dataframe_dict['correct'].append(False)
+                    # check if sat is predicted as sat or unsat
+                    if len(assignment) > 0:
+                        dataframe_dict['pred_is_sat'].append(True)  # pred sat
+                    else:
+                        dataframe_dict['pred_is_sat'].append(False)  # pred unsat
 
         elif ablation == 'translate':
             menu_items = sample_dict['menu_items']
@@ -253,7 +299,8 @@ if __name__ == "__main__":
             item2num = dict(zip(menu_items, item_nums))
             try:
                 gen_formula = parse_generated_output_translate(raw_output=sample_dict['gpt_out'],
-                                                               item_to_number=item2num)
+                                                               item_to_number=item2num,
+                                                               menu_items=menu_items)
                 # verify isomorphism of generated formula
                 pred_true = list(zip(gen_formula, sample_dict['formula']))
                 formula_comparison = \
@@ -321,18 +368,20 @@ if __name__ == "__main__":
     # plt.show()
     plt.savefig(f'{plot_path}/mean_alpha{append}{few_shot}.png')
 
-    if append != '_2sat' and ablation == 'menu' and few_shot == '' and model_name not in ['Llama-2-13B', 'Mixtral']:
+    if append != '_2sat' and ablation == 'menu' and few_shot == '' and model_name not in ['Llama-2-13B']:
         model_count_df = df.groupby('model_count').filter(lambda x: len(x) >= 20)
         model_count_df = model_count_df.groupby('satisfiability_ratio')['correct'].mean().reset_index(name='accuracy')
         plt.figure(figsize=(10, 6))
         window_size = 3
         plt.plot(model_count_df['satisfiability_ratio'],
-                 model_count_df['accuracy'].rolling(window=window_size).mean(), marker='o')
+                 model_count_df['accuracy'].rolling(window=window_size).median(), marker='o')
         # plt.yticks(np.arange(0, 1.1, 0.1))
-        plt.xlabel('satisfiability ratio', fontsize=16)
+        plt.xlabel('satisfiability ratio (log-scale)', fontsize=16)
         plt.ylabel('accuracy', fontsize=16)
+        plt.yticks(np.arange(0, 1.1, 0.1))
         plt.xticks(fontsize=13)
         plt.yticks(fontsize=13)
+        plt.xscale("log")
         plt.title(f'{model_name}', fontsize=18)
         plt.grid(True)
         plt.tight_layout()
@@ -405,79 +454,86 @@ if __name__ == "__main__":
     # plt.show()
 
     # 3D plot another
-    # model_count_df = df.groupby('model_count').filter(lambda x: len(x) >= 20)
-    # model_count_df = model_count_df.groupby(['alpha', 'satisfiability_ratio'])['correct'].mean().reset_index(name='accuracy')
-    # azimuth = -30  # The angle to rotate around the z-axis
-    # # elevation = 0
-    # fig = plt.figure(figsize=(15, 15))
-    # ax = fig.add_subplot(111, projection='3d')
-    # model_count_df['rolling_avg_accuracy'] = model_count_df['accuracy'].rolling(window=3).mean().fillna(method='bfill')
-    # # We need to create a regular grid where each model_count and num_vars are represented
-    # # Let's create an interpolation grid for the model_count and num_vars values
-    # alpha_i = np.linspace(model_count_df['alpha'].min(),
-    #                       model_count_df['alpha'].max(),
-    #                       len(model_count_df['alpha'].unique()))
-    # num_vars_i = np.linspace(model_count_df['satisfiability_ratio'].min(),
-    #                          model_count_df['satisfiability_ratio'].max(),
-    #                          len(model_count_df['satisfiability_ratio'].unique()))
-    # alpha_ii, num_vars_ii = np.meshgrid(alpha_i, num_vars_i)
-    #
-    # # Interpolating; this will fill in the gaps in the rolling_avg_accuracy on the new grid
-    # accuracy_i = griddata((model_count_df['alpha'],
-    #                        model_count_df['satisfiability_ratio']),
-    #                       model_count_df['rolling_avg_accuracy'],
-    #                       (alpha_ii, num_vars_ii), method='cubic')
-    #
-    # surf = ax.plot_surface(num_vars_ii, alpha_ii, accuracy_i, cmap='viridis', edgecolor='none')
-    # ax.view_init(azim=azimuth)
-    #
-    # # ax.zaxis.set_tick_params(length=0)
-    #
-    # # Increase the space between the z-axis title and the ticks
-    # # ax.zaxis.labelpad = 30
-    # # Remove the black tick lines for all axes
-    # # ax.xaxis.line.set_lw(0.)
-    # # ax.yaxis.line.set_lw(0.)
-    # # ax.zaxis.line.set_lw(0.)
-    #
-    # # Move the ticks to the left of the z-axis
-    # # ax.zaxis.set_tick_params(pad=15)
-    #
-    # # # Setting the new limits
-    # # ax.set_xlim(model_count_df['alpha'].max(), model_count_df['alpha'].min())
-    # # ax.set_ylim(model_count_df['satisfiability_ratio'].max(),
-    # #             model_count_df['satisfiability_ratio'].min())
-    #
-    # # Customize the z axis.
-    # ax.set_zlim(0, model_count_df['rolling_avg_accuracy'].max())
-    # ax.zaxis.set_major_locator(LinearLocator(10))
-    # ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
-    #
-    # # Customizing the axes tick labels
-    # ax.tick_params(axis='both', which='major', labelsize=15)
-    #
-    # # Add a color bar which maps values to colors.
-    # # fig.colorbar(surf, shrink=0.5, aspect=5)
-    #
-    # # plt.grid(True)
-    # ax.set_ylabel('alpha', fontsize=15, labelpad=20)
-    # ax.set_xlabel('satisfiability_ratio', fontsize=15, labelpad=20)
-    # ax.set_zlabel('accuracy', fontsize=15, labelpad=30)
-    # # Rotate the z-axis label
-    # # ax.zaxis.set_rotate_label(False)  # This disables automatic rotation
-    # # ax.zaxis.label.set_rotation(90)
-    # plt.tight_layout()
-    # plt.savefig(f'{plot_path}/accuracy_3d_{append}{few_shot}_2.png')
+    model_count_df = df.groupby('model_count').filter(lambda x: len(x) >= 0)
+    # model_count_df['satisfiability_ratio'] = np.log(model_count_df['satisfiability_ratio'])
+    model_count_df = model_count_df.groupby(['alpha', 'satisfiability_ratio'])['correct'].mean().reset_index(name='accuracy')
+    azimuth = -30  # The angle to rotate around the z-axis
+    # elevation = 0
+    fig = plt.figure(figsize=(15, 15))
+    ax = fig.add_subplot(111, projection='3d')
+    model_count_df['rolling_avg_accuracy'] = model_count_df['accuracy'].rolling(window=6).mean().fillna(method='bfill')
+    # We need to create a regular grid where each model_count and num_vars are represented
+    # Let's create an interpolation grid for the model_count and num_vars values
+    alpha_i = np.linspace(model_count_df['alpha'].min(),
+                          model_count_df['alpha'].max(),
+                          len(model_count_df['alpha'].unique()))
+    sat_i = np.linspace(model_count_df['satisfiability_ratio'].min(),
+                             model_count_df['satisfiability_ratio'].max(),
+                             len(model_count_df['satisfiability_ratio'].unique()))
+    alpha_ii, sat_ii = np.meshgrid(alpha_i, sat_i)
+
+    # Interpolating; this will fill in the gaps in the rolling_avg_accuracy on the new grid
+    accuracy_i = griddata((model_count_df['satisfiability_ratio'],
+                           model_count_df['alpha']),
+                          model_count_df['rolling_avg_accuracy'],
+                          (sat_ii, alpha_ii), method='linear')
+
+    surf = ax.plot_surface(sat_ii, alpha_ii, accuracy_i, cmap='viridis', edgecolor='none')
+    ax.view_init(azim=azimuth)
+
+    # ax.zaxis.set_tick_params(length=0)
+
+    # Increase the space between the z-axis title and the ticks
+    # ax.zaxis.labelpad = 30
+    # Remove the black tick lines for all axes
+    # ax.xaxis.line.set_lw(0.)
+    # ax.yaxis.line.set_lw(0.)
+    # ax.zaxis.line.set_lw(0.)
+
+    # Move the ticks to the left of the z-axis
+    # ax.zaxis.set_tick_params(pad=15)
+
+    # # Setting the new limits
+    # ax.set_xlim(model_count_df['alpha'].max(), model_count_df['alpha'].min())
+    # ax.set_ylim(model_count_df['satisfiability_ratio'].max(),
+    #             model_count_df['satisfiability_ratio'].min())
+
+    # Customize the z axis.
+    # ax.set_xscale("log")
+    ax.set_xlim(model_count_df['satisfiability_ratio'].max(), model_count_df['satisfiability_ratio'].min())
+    ax.set_zlim(0, 1.0)
+    ax.zaxis.set_major_locator(LinearLocator(10))
+    ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
+
+    # Customizing the axes tick labels
+    ax.tick_params(axis='both', which='major', labelsize=15)
+
+    # Add a color bar which maps values to colors.
+    # fig.colorbar(surf, shrink=0.5, aspect=5)
+
+    # plt.grid(True)
+    ax.set_ylabel('alpha', fontsize=15, labelpad=20)
+    ax.set_xlabel('satisfiability ratio', fontsize=15, labelpad=20)
+    ax.set_zlabel('accuracy', fontsize=15, labelpad=30)
+    # Rotate the z-axis label
+    # ax.zaxis.set_rotate_label(False)  # This disables automatic rotation
+    # ax.zaxis.label.set_rotation(90)
+    plt.tight_layout()
+    plt.savefig(f'{plot_path}/accuracy_3d_{append}{few_shot}_2.png')
 
 
     plt.figure(figsize=(10, 6))
     high_alpha_df = df[df['alpha'] >= 0][["pred_is_sat", "is_sat"]]
+    high_alpha_df = high_alpha_df.dropna()
     labels = ['unSAT', 'SAT']
     # Generating the confusion matrix
-    conf_matrix = confusion_matrix(high_alpha_df['pred_is_sat'], high_alpha_df['is_sat'])
+    conf_matrix = confusion_matrix(high_alpha_df['pred_is_sat'].astype('bool'), high_alpha_df['is_sat'])
+    column_sums = conf_matrix.sum(axis=0)
+    normalized_conf_matrix = conf_matrix / column_sums[np.newaxis, :]
     # Plotting the confusion matrix using seaborn
-    heatmap = sns.heatmap(conf_matrix, annot=False, cmap='Blues',
-                          xticklabels=labels, yticklabels=labels)
+    heatmap = sns.heatmap(normalized_conf_matrix, annot=True, cmap='Blues',
+                          xticklabels=labels, yticklabels=labels,
+                          fmt='.2f', annot_kws={"size": 18})
     # Get the color bar
     cbar = heatmap.collections[0].colorbar
 

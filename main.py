@@ -131,6 +131,7 @@ if __name__ == "__main__":
     else:
         batch_size = 1
 
+    in_shot_examples = ''
     if few_shot > 0:
         in_shot_examples = sample_in_context(few_shot, model_name, ablation)
     sat_loader = DataLoader(sat_dataset, batch_size=batch_size, shuffle=True, collate_fn=custom_collate)
