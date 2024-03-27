@@ -16,7 +16,7 @@ os.environ["ROOT_PATH"] = os.getcwd()
 sys.path.append(os.environ["ROOT_PATH"])
 # os.environ["TRANSFORMERS_CACHE"] = 'checkpoint/'
 openai.api_key = os.getenv("OPENAI_API_KEY")
-# access_token = os.getenv("HF_ACCESS_TOKEN")
+access_token = os.getenv("HF_ACCESS_TOKEN")
 
 
 # openai.organization = ""
@@ -84,16 +84,24 @@ def query_mixtral(batch_preferences: List[str], in_context_examples: str) -> Tup
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset', type=str, choices=['int', 'float'], help="Dataset selection. Can be either 'int' or 'float'.")
+    args = parser.parse_args()
+
     ablation = 'menu'  # 'menu', 'sat', 'translate'
     two_sat_flag = False
     few_shot = 3  # 0 for zero_shot
-    model_name = 'gpt-3.5'  # gpt-4, gpt-3.5, llama-2-70b, llama-2-13b, mixtral
+    model_name = 'mixtral'  # gpt-4, gpt-3.5, llama-2-70b, llama-2-13b, mixtral
     job_number = ''  # sys.argv[1]
     # system message to prompt the model
     # different system messages for different ablations
     system_message = system_messages.names[ablation]
     append = '_2sat' if two_sat_flag else ''
-    data_path = os.path.join(os.environ["ROOT_PATH"], f'dataset{append}_float_alpha.pkl')
+
+    dataset_type_str = '_float_alpha' if args.dataset == 'float' else ''
+    data_path = os.path.join(os.environ["ROOT_PATH"], f'dataset{append}{dataset_type_str}.pkl')
     sat_dataset = SatDataset(root_path=os.environ["ROOT_PATH"], data_path=data_path)
 
     # os.environ["HF_HOME"] = os.environ["VSC_SCRATCH"] + '/.cache'

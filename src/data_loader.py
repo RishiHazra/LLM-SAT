@@ -2,6 +2,7 @@ import os
 import pickle
 import numpy as np
 from data_maker import DataMakerSR as dm
+from data_maker import pickle_load_from_chunks
 
 def data_loader(dataset_path):
   dataset = None
@@ -9,6 +10,9 @@ def data_loader(dataset_path):
     dataset = pickle.load(f)
 
   return dataset
+
+def data_loader_from_chunks(dataset_folder):
+  return pickle_load_from_chunks(dataset_folder)
 
 def data_stats(dataset):
   vars_per_formula = []
