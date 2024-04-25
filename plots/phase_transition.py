@@ -95,6 +95,19 @@ def plot_time_alpha(dir, extension='.pdf', extra_dir=None):
   plot_path =os.path.join(dir, f"times_alpha{extension}")
   plt.savefig(plot_path)
   # plt.show()
+
+def sat_probs(dir):
+  df_file = os.path.join(dir, 'sat_solved.csv')
+  df = pd.read_csv(df_file)
+
+  df['is_sat'] = df['is_sat'].astype(int)
+
+  df = df.groupby(['alpha'])['is_sat'].sum().reset_index()
+
+  df['is_sat'] = round(df['is_sat'] / df['is_sat'].max(), 2)
+
+  # save the sat probabilities to a file
+  df.to_csv(os.path.join(dir, 'sat_probs.csv'), index=False)
   
 # Version plotting quantiles (problem is that the 3rd quantile can be smaller than the mean)
 # def plot_time_alpha(dir, extension='.pdf', extra_dir=None):
@@ -138,10 +151,13 @@ if __name__ == "__main__":
   task_parsers = parser.add_subparsers(dest='task', help='Plotting procedures')
   phase_transition_parser = task_parsers.add_parser('phase_transition')
   time_parser = task_parsers.add_parser('time')
+  table_parser = task_parsers.add_parser('table')
   
   phase_transition_parser.add_argument('sat_res_dir', type=str, help="Log directory")
 
   time_parser.add_argument('sat_res_dir', type=str, help="Log directory")
+
+  table_parser.add_argument('sat_res_dir', type=str, help="Log directory")
 
   parser.add_argument('--extension', type=str, help="File extension", default='.pdf')
   parser.add_argument('--extra_dir', type=str, help="Extra log directory", default=None)
@@ -153,5 +169,7 @@ if __name__ == "__main__":
   elif args.task == 'time':
     plot_time(args.sat_res_dir, extension=args.extension, extra_dir=args.extra_dir)
     plot_time_alpha(args.sat_res_dir, extension=args.extension, extra_dir=args.extra_dir)
+  elif args.task == 'table':
+    sat_probs(args.sat_res_dir)
   else:
     raise NotImplementedError("Unsupported plotting task")
