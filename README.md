@@ -59,5 +59,6 @@ The folder `plots/` contains the scripts used to generate plots.
     - The file `dataset_float_alpha.pkl` contains all the formulas with float alpha values.
 3. The file `main.py` is used to run the experiments with GPT, LLama, and Mixtral.
 4. To run GPT-* models, you would need a [OPENAI_API_KEY](https://openai.com/index/openai-api/)
-5. To run Llama models, apply for a license through this [link](https://huggingface.co/meta-llama). Once you have the license, create an account on Huggingface and update your Llama token through this [link](https://huggingface.co/meta-llama). Set up you [HF_ACCESS_TOKEN](https://huggingface.co/docs/hub/en/security-tokens).
+5. To run Llama models, apply for a license through this [link](https://huggingface.co/meta-llama). Once you have the license, create an account on Huggingface and update your Llama token through this [link](https://huggingface.co/meta-llama). Set up your [HF_ACCESS_TOKEN](https://huggingface.co/docs/hub/en/security-tokens).
+6. For PaLM and Gemini Pro, you would need to set up an account on Google Cloud. Check the Vertex AI setup [here](https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/gemini).
 
