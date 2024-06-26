@@ -26,7 +26,7 @@ In `src/` the files `sat_solve.py` and `model_counting.py` implement, respective
 
 ### Boost Multiprecision library
 
-Necessary to compile `d4`. You can install it in the following way.
+This library is necessary to compile `d4`. You can install it in the following way.
 
 #### Ubuntu/Debian
 
@@ -40,7 +40,7 @@ Necessary to compile `d4`. You can install it in the following way.
 
 The folder `plots/` contains the scripts used to generate plots.
 
-## Getting Started
+## Getting Started (SAT Solver)
 
 1. Run `/setup.sh` and `pip install -r requirements.txt`
 2. You can either generate a dataset or use an already existing one
@@ -50,3 +50,11 @@ The folder `plots/` contains the scripts used to generate plots.
     2b. To use an already existing one just copy paste it in the `/data/` folder
 
 3. (Optional) Run `data_loader.py` passing the path to your dataset to obtain a brief analysis of your dataset
+
+## Getting Started (LLMs)
+
+1. Run `/setup.sh` and `pip install -r requirements.txt`
+2. We provide the datasets we used for the submission.
+    - The file `dataset.pkl` contains all the formulas with integer alpha values.
+    - The file `dataset_float_alpha.pkl` contains all the formulas with float alpha values.
+3. The file `main.py` is used to run the experiments with GPT, LLama, and Mixtral.
