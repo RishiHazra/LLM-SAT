@@ -1,5 +1,3 @@
-# LLM-SAT
-
 Code and data for our paper 
 ## Can Large Language Models Reason? A Characterization via 3-SAT Phase Transitions
 
