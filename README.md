@@ -1,5 +1,5 @@
-Code and data for our paper 
 ## Can Large Language Models Reason? A Characterization via 3-SAT Phase Transitions
+This repository contains the code and data for our paper.
 
 ## SAT Solving and Model Counting
 
