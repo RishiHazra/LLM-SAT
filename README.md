@@ -1,6 +1,7 @@
 # LLM-SAT
 
-Need to describe the LLM part.
+Code and data for our paper 
+## Can Large Language Models Reason? A Characterization via 3-SAT Phase Transitions
 
 ## SAT Solving and Model Counting
 
