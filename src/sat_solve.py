@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
   args = parser.parse_args()
 
-  dataset = data_loader_from_chunks(args.dataset_folder)
+  dataset = data_loader(os.path.join(args.dataset_folder, "dataset.pkl"))
   n_formulas = len(dataset)
   solved = dict()
   solved['id'] = []

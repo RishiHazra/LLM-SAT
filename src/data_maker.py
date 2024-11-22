@@ -77,6 +77,140 @@ class DataMaker:
     return txt
   
 
+class DataMaker_kHorn(DataMaker):
+  # Generates random k-Horn-SAT(m) formulas. Each formula has:
+  # - n variables
+  # - m clauses
+  # - k literals per clause, and one of them must be positive
+  def __init__(self, seed, k):
+    super().__init__(seed)
+    self._k = k
+
+  def generate(self, data_dir: str, ns: List[int], alpha_min: float, alpha_max: float, alpha_inc: float, N: int,
+               dimacs: bool) -> List[Tuple[int, str, int, int, List[List[int]]]]:
+    log_path: str = os.path.join(data_dir, 'log.txt')
+    logfile = open(log_path, 'w')
+
+    tot_formulas: int = np.floor(((alpha_max - alpha_min) / alpha_inc) + 1) * N * len(ns)
+    formulas: List[Tuple[int, str, int, int, List[List[int]]]] = []
+    formulas_idx: int = 1
+
+    # Generate formulas with n variables for each n in ns
+    alpha_inc = round(alpha_inc, 3)
+    for n in ns:
+      alpha = round(alpha_min, 3)
+      while alpha <= alpha_max:
+        # print("Alpha: %s" % alpha)
+        for N_idx in range(N):
+          # Generate N formulas for each alpha
+          formula: List[List[int]] = []
+          # Genrate prefix, a conjunction of: 1 negative literal, and 0.2*n positive literals
+          formula.append([-1])
+          for lit in self._rng.choice(n-1, size=int(round(0.5*n, 0)), replace=False):
+            formula.append([lit+2])
+          m = int(round(alpha * n, 0))  # int() alone could introduce errors, i.e. 122.9999999 becomes 122
+          assert (m/n == alpha), "Size '%s' for formulas leads to wrong alpha (%s instead of %s)" % (n, m/n, alpha)
+          for _ in range(m):
+            formula.append(self.generate_k_clause(n, self._k))
+
+          log_details: List[str] = ["%d vars" % n, "%d clauses" % len(formula)]
+
+          dimacs_path: str = None
+          if dimacs:
+            dimacs_path = f"dimacs/{self._k}-horn_{n}_{m}_{N_idx}.cnf"
+            with open(os.path.join(data_dir, dimacs_path), 'w') as dimacs_file:
+              dimacs_file.write(self.to_dimacs(n, formula))
+            log_details.append(dimacs_path)
+
+          formulas.append((formulas_idx, n, m, formula, is_sat(n, formula), dimacs_path))
+
+          log_str: str = "%d/%d formula generated (%s)" % (formulas_idx, tot_formulas, ', '.join(log_details))
+          print(log_str)
+          print(log_str, file=logfile, flush=True)
+
+          formulas_idx += 1
+
+        alpha += alpha_inc
+        alpha = round(alpha, 3)
+    
+    return formulas
+  
+  def generate_k_clause(self, n, k):
+    vs: np.ndarray[int] = self._rng.choice(n, size=min(n, k), replace=False)
+    vs = [-(v + 1) for v in vs]
+    vs[0] = -vs[0] # if self._rng.random() < 0.5 else vs[0]
+    return vs
+
+# UNFINISHED CODE (might be useful for future work)
+# class DataMaker_n_k_Horn(DataMaker):
+#   # Generates H^k_{n,d} formulas such that, for a finite k > 0 and a vector d 
+#   # of k nonnegative real numbers d1,d2,...,dk, d1 < 1, let the random 
+#   # Horn-SAT formula H^k_{n,d} be the conjunction of:
+#   # - a single negative literal ¬x1,
+#   # - d1*n positive literals chosen uniformly without replacement from x2, . . . , xn, and
+#   # - for each 2 ≤ j ≤ k, dj*n clauses chosen uniformly from the j*\binom{n}{j} possible Horn clauses with j variables where one literal is positive.
+#   # [Moore et al. "A continuous-discontinuous second-order transition in the satisfiability of random Horn-SAT formulas." (2007)]
+#   def __init__(self, seed, k):
+#     super().__init__(seed)
+#     self._k = k
+
+#   def generate(self, data_dir: str, n: int, ds: List[float], N: int, dimacs: bool) -> List[Tuple[int, str, int, int, List[List[int]]]]:
+#     log_path: str = os.path.join(data_dir, 'log.txt')
+#     logfile = open(log_path, 'w')
+
+#     tot_formulas: int = N
+#     formulas: List[Tuple[int, str, int, int, List[List[int]]]] = []
+#     formulas_idx: int = 1
+
+#     for _ in range(N):
+#       formula = self.generate_formula(n, ds)
+
+#       log_details: List[str] = ["%d vars" % n, "ds=%s" % ', '.join(map(str, ds))]
+
+#       dimacs_path: str = None
+#       if dimacs:
+#         dimacs_path = f"dimacs/horn_{self._k}_{n}_{'_'.join([f"d{i}={str(d)}" for i,d in enumerate(ds)])}_{formulas_idx}.cnf"
+#         with open(os.path.join(data_dir, dimacs_path), 'w') as dimacs_file:
+#           dimacs_file.write(self.to_dimacs(n, formula))
+#         log_details.append(dimacs_path)
+
+#       formulas.append((formulas_idx, dimacs_path, n, len(formula), ds[0], ds[1], formula))
+
+#       log_str: str = "%d/%d formula generated (%s)" % (formulas_idx, tot_formulas, ', '.join(log_details))
+#       print(log_str)
+#       print(log_str, file=logfile, flush=True)
+
+#       formulas_idx += 1
+    
+#     return formulas
+  
+#   def generate_formula(self, n: int, d: float) -> List[List[int]]:
+#     formula: List[List[int]] = []
+#     # single negative literal
+#     formula.append([-1])
+
+#     # d1*n positive literals chosen uniformly without replacement from x2, . . . , xn
+#     n_pos = int(np.floor(d * n))
+#     pos_literals = list(range(2, n+1))
+#     self._rng.shuffle(pos_literals)
+#     formula.append(pos_literals[:n_pos])
+
+#     # for each 2 ≤ j ≤ k, dj*n clauses chosen uniformly from the j*\binom{n}{j} possible Horn clauses with j variables where one literal is positive.
+#     for j in range(2, self._k+1):
+#       n_clauses = int(np.floor(d * n))
+#       for _ in range(n_clauses):
+#         clause = self.generate_horn_clause(n, j)
+#         formula.append(clause)
+
+#     return formula
+  
+#   def generate_horn_clause(self, n: int, j: int) -> List[int]:
+#     vs: np.ndarray[int] = self._rng.choice(n, size=j, replace=False)
+#     pos = self._rng.integers(0, j)
+#     return [v + 1 if i == pos else -(v + 1) for i, v in enumerate(vs)]
+
+  
+
 class DataMakerCNFk(DataMaker):
   # Generates formulas from k-CNF(m,n) where
   # - k is the number of variables per clause
@@ -286,6 +420,15 @@ if __name__ == "__main__":
   merge_parser = task_parsers.add_parser('merge_cnf')
   merge_parser = task_parsers.add_parser('remove_int_alpha_cnf')
 
+  horn_parser = task_parsers.add_parser('horn')
+  horn_parser.add_argument('-k', type=int, default=3, help="Size of the clauses (def. 3)")
+  horn_parser.add_argument('--ns', type=lambda s: [int(item) for item in s.split(',')], 
+                          help="Number of variables (def. [5,10,15,20,30,40])")
+  horn_parser.add_argument('alpha_min', type=float, help="Minimum alpha")
+  horn_parser.add_argument('alpha_max', type=float, help="Minimum alpha")
+  horn_parser.add_argument('--alpha_inc', type=float, default=0.2, help="Minimum alpha (def. 0.2)")
+  horn_parser.add_argument('-N', type=int, default=200, help="Number of formulas per alpha value (def. 200)")
+
   args = parser.parse_args()
 
   # create directory
@@ -316,6 +459,19 @@ if __name__ == "__main__":
                             args.alpha_inc,
                             args.N,
                             args.dimacs)
+  elif args.task == 'horn':
+    horn = DataMaker_kHorn(args.seed, args.k)
+    ns = [5,10,15,20,30,40]
+    if args.ns:
+      ns = args.ns
+
+    formulas = horn.generate(args.data_dir,
+                            ns,
+                            args.alpha_min,
+                            args.alpha_max,
+                            args.alpha_inc,
+                            args.N,
+                            args.dimacs)
   elif args.task == 'merge_cnf':
     DataMakerCNFk.merge_datasets(args.data_dir)
   elif args.task == 'remove_int_alpha_cnf':
@@ -326,7 +482,7 @@ if __name__ == "__main__":
   pickle_path = os.path.join(args.data_dir, 'dataset.pkl')
 
   if args.task != 'merge_cnf' and args.task != 'remove_int_alpha_cnf':
-    # print("Writing %d formulas to %s..." % (len(formulas), pickle_path))
-    # with open(pickle_path, 'wb') as f_dump:
-    #   pickle.dump(formulas, f_dump)
-    pickle_dump_in_chunks(formulas, args.data_dir)
+    print("Writing %d formulas to %s..." % (len(formulas), pickle_path))
+    with open(pickle_path, 'wb') as f_dump:
+      pickle.dump(formulas, f_dump)
+    # pickle_dump_in_chunks(formulas, args.data_dir)
