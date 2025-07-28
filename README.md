@@ -1,5 +1,5 @@
-# Can Large Language Models Reason? A Characterization via 3-SAT Phase Transitions
-This repository contains the code and data for our paper.
+# Have Large Language Models Learned to Reason? A Characterization via 3-SAT Phase Transitions
+This repository contains the code and data for our COLM 2025 paper.
 
 ## SAT Solving and Model Counting
 
@@ -56,10 +56,15 @@ The folder `plots/` contains the scripts used to generate plots.
 2. We provide the datasets we used for the submission.
     - The file `dataset.pkl` contains all the formulas with integer alpha values.
     - The file `dataset_float_alpha.pkl` contains all the formulas with float alpha values.
-3. The file `main.py` is used to run the experiments with GPT, LLama, and Mixtral.
-4. To run GPT-* models, you would need a [OPENAI_API_KEY](https://openai.com/index/openai-api/)
-5. To run Llama models, apply for a license through this [link](https://huggingface.co/meta-llama). Once you have the license, create an account on Huggingface and update your Llama token through this [link](https://huggingface.co/meta-llama). Set up your [HF_ACCESS_TOKEN](https://huggingface.co/docs/hub/en/security-tokens).
-6. For PaLM and Gemini Pro, you would need to set up an account on Google Cloud. Check the Vertex AI setup [here](https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/gemini). For Gemini, run  `gemini_inference.ipynb`. For PaLM, run `palm_inference.ipynb`.
+3. The file `main.py` is used to run the experiments with different LLMs.
+4. You would need a key for each. For e.g., for GPT-4o the [OPENAI_API_KEY](https://openai.com/index/openai-api/)
+
+```python main.py --ablation <ablation type> --model_name <model name> --sat_class <sat complexity class>```
+
+Here, 
+* ablation_type = ["menu", "sat", "translate"],
+* model_name = ["deepseek_v3", "gemini_25_pro", "deepseek", "gemini_20", "gpt-4o", "claude_37_sonnet"],
+* sat_class = ["2sat", "1_3_horn_sat", "1_2_horn_sat", "3sat_float", "3sat_int"]. 3-SAT data is available with float and int alpha values. Our paper results report a combination of the two.
 
 The system prompts can be found in `system_messages/`  
 
