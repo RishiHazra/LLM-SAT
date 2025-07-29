@@ -1,5 +1,5 @@
 #!/bin/bash
-DIR='output'
+DIR='output_mc2'
 FILE='data_log.log'
 
 # Loop over the directories in DIR

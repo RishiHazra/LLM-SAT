@@ -7,7 +7,9 @@ from typing import List
 # from utilsdata_loader import data_loader
 
 
-def verify_solution(num_vars: int, formula: List[List[int]], assignment: List[int]) -> bool:
+def verify_solution(
+    num_vars: int, formula: List[List[int]], assignment: List[int]
+) -> bool:
     solver = minisolvers.MinisatSolver()
     for _ in range(num_vars):
         solver.new_var(dvar=True)
@@ -30,7 +32,7 @@ def verify_solution(num_vars: int, formula: List[List[int]], assignment: List[in
 #
 #     args = parser.parse_args()
 #
-#     dataset = data_loader(os.path.join(args.dataset_folder, '../dataset.pkl'))
+#     dataset = data_loader(os.path.join(args.dataset_folder, '../dataset_3sat_int.pkl'))
 #     n_formulas = len(dataset)
 #     solved = dict()
 #     solved['id'] = []

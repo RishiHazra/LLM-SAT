@@ -95,7 +95,42 @@ def plot_time_alpha(dir, extension='.pdf', extra_dir=None):
   plot_path =os.path.join(dir, f"times_alpha{extension}")
   plt.savefig(plot_path)
   # plt.show()
-  
+
+# Version plotting quantiles (problem is that the 3rd quantile can be smaller than the mean)
+# def plot_time_alpha(dir, extension='.pdf', extra_dir=None):
+#   df_file = os.path.join(dir, 'sat_solved.csv')
+#   df = pd.read_csv(df_file)
+
+#   # if extra_dir is not None merge the two dataframes
+#   if extra_dir is not None:
+#     df_extra_file = os.path.join(extra_dir, 'sat_solved.csv')
+#     df_extra = pd.read_csv(df_extra_file)
+#     df = pd.concat([df, df_extra], ignore_index=True)
+
+#   df['time'] = df['time'].astype(float)
+
+#   # compute the percentiles
+#   df['lower'] = df.groupby(['alpha'])['time'].transform(lambda x: x.quantile(0.25))
+#   df['upper'] = df.groupby(['alpha'])['time'].transform(lambda x: x.quantile(0.75))
+
+#   # take the average time
+#   df = df.groupby(['alpha']).agg({'time': 'mean', 'lower': 'first', 'upper': 'first'}).reset_index()
+
+#   fig, ax = plt.subplots()
+
+#   ax = df.plot(ax=ax, kind='line', x='alpha', y='time', label='time')
+#   # plot also the percentiles
+#   ax.fill_between(df['alpha'], df['lower'], df['upper'], alpha=0.2)
+
+#   # set y-axis to log scale
+#   ax.set_yscale('log')
+
+#   # remove legend
+#   ax.get_legend().remove()
+#   plot_path =os.path.join(dir, f"times_alpha{extension}")
+#   plt.savefig(plot_path)
+#   # plt.show()
+
 # Version plotting quantiles (problem is that the 3rd quantile can be smaller than the mean)
 # def plot_time_alpha(dir, extension='.pdf', extra_dir=None):
 #   df_file = os.path.join(dir, 'sat_solved.csv')

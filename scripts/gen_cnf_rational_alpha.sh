@@ -16,7 +16,7 @@ for index in ${!ns[*]}; do
   NS=${ns[$index]}
 
   python src/data_maker.py cnf $ALPHA_MIN $ALPHA_MAX -N $N -k $K --alpha_inc $ALPHA_INC --ns $NS $DIR $SEED #--dimacs
-  # rename dataset.pkl to dataset-ns.pkl
+  # rename dataset_3sat_int.pkl to dataset-ns.pkl
   mv $DIR/dataset.pkl $DIR/dataset-$NS.pkl
 done
 
