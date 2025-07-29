@@ -1,5 +1,6 @@
 # Have Large Language Models Learned to Reason? A Characterization via 3-SAT Phase Transitions
-This repository contains the code and data for our COLM 2025 paper.
+This repository contains the code and data for our **COLM 2025** paper [Have Large Language Models Learned to Reason?
+A Characterization via 3-SAT](https://arxiv.org/pdf/2504.03930).
 
 ## SAT Solving and Model Counting
 
