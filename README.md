@@ -65,7 +65,7 @@ Here,
 * ablation_type = ["menu", "sat", "translate"], "menu" is for SAT-Menu, "sat" is for SAT-CNF
 * model_name = ["deepseek_v3", "gemini_25_pro", "deepseek", "gemini_20", "gpt-4o", "claude_37_sonnet"],
 * sat_class = ["2sat", "1_3_horn_sat", "1_2_horn_sat", "3sat_float", "3sat_int"]. 3-SAT data is available with float and int alpha values. Our paper results report a combination of the two.
-
+ ---
 The system prompts can be found in `system_messages/`  
 
 The raw outputs and annotations can be found in `extras/` folder.
